@@ -1,0 +1,11 @@
+C:\Users\umuty\source\repos\StokTakip\StokTakip\bin\Debug\StokTakip.exe.config
+C:\Users\umuty\source\repos\StokTakip\StokTakip\bin\Debug\StokTakip.exe
+C:\Users\umuty\source\repos\StokTakip\StokTakip\bin\Debug\StokTakip.pdb
+C:\Users\umuty\source\repos\StokTakip\StokTakip\obj\Debug\StokTakip.csproj.AssemblyReference.cache
+C:\Users\umuty\source\repos\StokTakip\StokTakip\obj\Debug\StokTakip.Form1.resources
+C:\Users\umuty\source\repos\StokTakip\StokTakip\obj\Debug\StokTakip.Properties.Resources.resources
+C:\Users\umuty\source\repos\StokTakip\StokTakip\obj\Debug\StokTakip.csproj.GenerateResource.cache
+C:\Users\umuty\source\repos\StokTakip\StokTakip\obj\Debug\StokTakip.csproj.CoreCompileInputs.cache
+C:\Users\umuty\source\repos\StokTakip\StokTakip\obj\Debug\StokTakip.exe
+C:\Users\umuty\source\repos\StokTakip\StokTakip\obj\Debug\StokTakip.pdb
+C:\Users\umuty\source\repos\StokTakip\StokTakip\obj\Debug\StokTakip.SiparisGecmisiForm.resources

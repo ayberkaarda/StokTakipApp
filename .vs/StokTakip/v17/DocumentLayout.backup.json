@@ -1,0 +1,99 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\umuty\\OneDrive\\Belgeler\\GitHub\\StokTakipApp\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{6F37DD0D-5D55-48E5-B1C5-A0975C761B03}|StokTakip\\StokTakip.csproj|c:\\users\\umuty\\onedrive\\belgeler\\github\\stoktakipapp\\stoktakip\\siparisgecmisiform.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{6F37DD0D-5D55-48E5-B1C5-A0975C761B03}|StokTakip\\StokTakip.csproj|solutionrelative:stoktakip\\siparisgecmisiform.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{6F37DD0D-5D55-48E5-B1C5-A0975C761B03}|StokTakip\\StokTakip.csproj|C:\\Users\\umuty\\OneDrive\\Belgeler\\GitHub\\StokTakipApp\\stoktakip\\siparisgecmisiform.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
+      "RelativeMoniker": "D:0:0:{6F37DD0D-5D55-48E5-B1C5-A0975C761B03}|StokTakip\\StokTakip.csproj|solutionrelative:stoktakip\\siparisgecmisiform.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{6F37DD0D-5D55-48E5-B1C5-A0975C761B03}|StokTakip\\StokTakip.csproj|C:\\Users\\umuty\\OneDrive\\Belgeler\\GitHub\\StokTakipApp\\stoktakip\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{6F37DD0D-5D55-48E5-B1C5-A0975C761B03}|StokTakip\\StokTakip.csproj|solutionrelative:stoktakip\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{6F37DD0D-5D55-48E5-B1C5-A0975C761B03}|StokTakip\\StokTakip.csproj|C:\\Users\\umuty\\OneDrive\\Belgeler\\GitHub\\StokTakipApp\\stoktakip\\databasehelper.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{6F37DD0D-5D55-48E5-B1C5-A0975C761B03}|StokTakip\\StokTakip.csproj|solutionrelative:stoktakip\\databasehelper.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{6F37DD0D-5D55-48E5-B1C5-A0975C761B03}|StokTakip\\StokTakip.csproj|C:\\Users\\umuty\\OneDrive\\Belgeler\\GitHub\\StokTakipApp\\stoktakip\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
+      "RelativeMoniker": "D:0:0:{6F37DD0D-5D55-48E5-B1C5-A0975C761B03}|StokTakip\\StokTakip.csproj|solutionrelative:stoktakip\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 1,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "DatabaseHelper.cs",
+              "DocumentMoniker": "C:\\Users\\umuty\\OneDrive\\Belgeler\\GitHub\\StokTakipApp\\StokTakip\\DatabaseHelper.cs",
+              "RelativeDocumentMoniker": "StokTakip\\DatabaseHelper.cs",
+              "ToolTip": "C:\\Users\\umuty\\OneDrive\\Belgeler\\GitHub\\StokTakipApp\\StokTakip\\DatabaseHelper.cs",
+              "RelativeToolTip": "StokTakip\\DatabaseHelper.cs",
+              "ViewState": "AgIAAAsAAAAAAAAAAAAiwDEAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-05-18T09:37:34.001Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "SiparisGecmisiForm.cs",
+              "DocumentMoniker": "C:\\Users\\umuty\\OneDrive\\Belgeler\\GitHub\\StokTakipApp\\StokTakip\\SiparisGecmisiForm.cs",
+              "RelativeDocumentMoniker": "StokTakip\\SiparisGecmisiForm.cs",
+              "ToolTip": "C:\\Users\\umuty\\OneDrive\\Belgeler\\GitHub\\StokTakipApp\\StokTakip\\SiparisGecmisiForm.cs",
+              "RelativeToolTip": "StokTakip\\SiparisGecmisiForm.cs",
+              "ViewState": "AgIAABQAAAAAAAAAAAArwCAAAAAXAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-05-18T09:29:44.759Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "SiparisGecmisiForm.cs [Tasar\u0131m]",
+              "DocumentMoniker": "C:\\Users\\umuty\\OneDrive\\Belgeler\\GitHub\\StokTakipApp\\StokTakip\\SiparisGecmisiForm.cs",
+              "RelativeDocumentMoniker": "StokTakip\\SiparisGecmisiForm.cs",
+              "ToolTip": "C:\\Users\\umuty\\source\\repos\\StokTakip\\StokTakip\\SiparisGecmisiForm.cs [Tasar\u0131m]",
+              "RelativeToolTip": "..\\..\\..\\..\\source\\repos\\StokTakip\\StokTakip\\SiparisGecmisiForm.cs [Tasar\u0131m]",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-05-18T09:29:36.573Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "Form1.cs",
+              "DocumentMoniker": "C:\\Users\\umuty\\OneDrive\\Belgeler\\GitHub\\StokTakipApp\\StokTakip\\Form1.cs",
+              "RelativeDocumentMoniker": "StokTakip\\Form1.cs",
+              "ToolTip": "C:\\Users\\umuty\\OneDrive\\Belgeler\\GitHub\\StokTakipApp\\StokTakip\\Form1.cs",
+              "RelativeToolTip": "StokTakip\\Form1.cs",
+              "ViewState": "AgIAAAYAAAAAAAAAAAAAABsAAAAjAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-05-18T09:19:58.681Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "Form1.cs [Tasar\u0131m]",
+              "DocumentMoniker": "C:\\Users\\umuty\\OneDrive\\Belgeler\\GitHub\\StokTakipApp\\StokTakip\\Form1.cs",
+              "RelativeDocumentMoniker": "StokTakip\\Form1.cs",
+              "ToolTip": "C:\\Users\\umuty\\source\\repos\\StokTakip\\StokTakip\\Form1.cs [Tasar\u0131m]",
+              "RelativeToolTip": "..\\..\\..\\..\\source\\repos\\StokTakip\\StokTakip\\Form1.cs [Tasar\u0131m]",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-05-18T09:15:28.361Z"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
