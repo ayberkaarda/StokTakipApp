@@ -66,14 +66,25 @@ public class YetkiTests
         _stok.ReceivedCalls().Count() + _siparis.ReceivedCalls().Count() + _kategori.ReceivedCalls().Count()
         + _rapor.ReceivedCalls().Count() + _csv.ReceivedCalls().Count();
 
-    private void OturumAc(KullaniciRolu rol) => _oturum.OturumAc(new OturumKullanicisi(1, "kullanici", rol));
+    private readonly BellekKullaniciRepository _kullanicilar = new();
+
+    private OturumYetkiDenetcisi Denetci() => new(_oturum, _kullanicilar);
+
+    private void OturumAc(KullaniciRolu rol)
+    {
+        if (_kullanicilar.Kayitlar.Count == 0)
+            _kullanicilar.AddAsync(new Domain.Entities.Kullanici("kullanici", [1], [1], 1, rol)).GetAwaiter().GetResult();
+        var k = _kullanicilar.Kayitlar[0];
+        k.RolAta(rol);
+        _oturum.OturumAc(new OturumKullanicisi(k.KullaniciId, k.KullaniciAdi, rol));
+    }
 
     [Theory]
     [MemberData(nameof(OperatorIslemleri))]
     [MemberData(nameof(AdminIslemleri))]
     public async Task OturumYokken_HerIslemReddedilir_IcServiseUlasilmaz(string islem)
     {
-        var hata = await Assert.ThrowsAsync<YetkisizIslemException>(Islem(islem, new OturumYetkiDenetcisi(_oturum)));
+        var hata = await Assert.ThrowsAsync<YetkisizIslemException>(Islem(islem, Denetci()));
 
         Assert.Equal("Bu işlem için oturum açmanız gerekir.", hata.Message);
         Assert.Equal(0, IcServisCagrisi());
@@ -85,7 +96,7 @@ public class YetkiTests
     {
         OturumAc(KullaniciRolu.Operator);
 
-        var hata = await Assert.ThrowsAsync<YetkisizIslemException>(Islem(islem, new OturumYetkiDenetcisi(_oturum)));
+        var hata = await Assert.ThrowsAsync<YetkisizIslemException>(Islem(islem, Denetci()));
 
         Assert.Equal("Bu işlem için yetkiniz yok.", hata.Message);
         Assert.Equal(0, IcServisCagrisi());
@@ -96,7 +107,7 @@ public class YetkiTests
     public async Task Operator_KendiIslemleriniYapabilir(string islem)
     {
         OturumAc(KullaniciRolu.Operator);
-        await Islem(islem, new OturumYetkiDenetcisi(_oturum))();
+        await Islem(islem, Denetci())();
         Assert.Equal(1, IcServisCagrisi());
     }
 
@@ -106,7 +117,7 @@ public class YetkiTests
     public async Task Admin_HerIslemiYapabilir(string islem)
     {
         OturumAc(KullaniciRolu.Admin);
-        await Islem(islem, new OturumYetkiDenetcisi(_oturum))();
+        await Islem(islem, Denetci())();
         Assert.Equal(1, IcServisCagrisi());
     }
 
@@ -126,7 +137,7 @@ public class YetkiTests
         var token = new CancellationTokenSource().Token;
         var dto = new UrunDto(3, "Kalem", 5);
         _stok.StokGuncelleAsync(3, 5, token, rv).Returns(dto);
-        var stok = new YetkiDenetimliStokService(_stok, new OturumYetkiDenetcisi(_oturum));
+        var stok = new YetkiDenetimliStokService(_stok, Denetci());
 
         Assert.Same(dto, await stok.StokGuncelleAsync(3, 5, token, rv));
         await stok.UrunSilAsync(3, token, rv);
@@ -137,9 +148,9 @@ public class YetkiTests
     public async Task OturumKapaninca_YenidenReddedilir()
     {
         OturumAc(KullaniciRolu.Admin);
-        await Islem("UrunSil", new OturumYetkiDenetcisi(_oturum))();
+        await Islem("UrunSil", Denetci())();
         _oturum.OturumuKapat();
-        await Assert.ThrowsAsync<YetkisizIslemException>(Islem("UrunSil", new OturumYetkiDenetcisi(_oturum)));
+        await Assert.ThrowsAsync<YetkisizIslemException>(Islem("UrunSil", Denetci()));
     }
 
     [Theory]

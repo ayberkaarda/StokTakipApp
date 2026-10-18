@@ -7,129 +7,132 @@ namespace StokTakip.Application.Kimlik;
 
 public sealed class YetkiDenetimliStokService(IStokService ic, IYetkiDenetcisi yetki) : IStokService
 {
-    public Task<IReadOnlyList<UrunDto>> UrunleriListeleAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<UrunDto>> UrunleriListeleAsync(CancellationToken cancellationToken = default)
     {
-        yetki.Gerektir(Yetki.UrunGoruntule);
-        return ic.UrunleriListeleAsync(cancellationToken);
+        await yetki.GerektirAsync(Yetki.UrunGoruntule, cancellationToken);
+        return await ic.UrunleriListeleAsync(cancellationToken);
     }
 
-    public Task<UrunDto?> UrunGetirAsync(int urunId, CancellationToken cancellationToken = default)
+    public async Task<UrunDto?> UrunGetirAsync(int urunId, CancellationToken cancellationToken = default)
     {
-        yetki.Gerektir(Yetki.UrunGoruntule);
-        return ic.UrunGetirAsync(urunId, cancellationToken);
+        await yetki.GerektirAsync(Yetki.UrunGoruntule, cancellationToken);
+        return await ic.UrunGetirAsync(urunId, cancellationToken);
     }
 
-    public Task<UrunDto> UrunEkleAsync(UrunEkleIstegi istek, CancellationToken cancellationToken = default)
+    public async Task<UrunDto> UrunEkleAsync(UrunEkleIstegi istek, CancellationToken cancellationToken = default)
     {
-        yetki.Gerektir(Yetki.UrunEkleGuncelle);
-        return ic.UrunEkleAsync(istek, cancellationToken);
+        await yetki.GerektirAsync(Yetki.UrunEkleGuncelle, cancellationToken);
+        return await ic.UrunEkleAsync(istek, cancellationToken);
     }
 
-    public Task<UrunDto> UrunGuncelleAsync(UrunGuncelleIstegi istek, CancellationToken cancellationToken = default, byte[]? beklenenRowVersion = null)
+    public async Task<UrunDto> UrunGuncelleAsync(UrunGuncelleIstegi istek, CancellationToken cancellationToken = default, byte[]? beklenenRowVersion = null)
     {
-        yetki.Gerektir(Yetki.UrunEkleGuncelle);
-        return ic.UrunGuncelleAsync(istek, cancellationToken, beklenenRowVersion);
+        await yetki.GerektirAsync(Yetki.UrunEkleGuncelle, cancellationToken);
+        return await ic.UrunGuncelleAsync(istek, cancellationToken, beklenenRowVersion);
     }
 
-    public Task<UrunDto> StokGuncelleAsync(int urunId, int yeniStok, CancellationToken cancellationToken = default, byte[]? beklenenRowVersion = null)
+    public async Task<UrunDto> StokGuncelleAsync(int urunId, int yeniStok, CancellationToken cancellationToken = default, byte[]? beklenenRowVersion = null)
     {
-        yetki.Gerektir(Yetki.StokGuncelle);
-        return ic.StokGuncelleAsync(urunId, yeniStok, cancellationToken, beklenenRowVersion);
+        await yetki.GerektirAsync(Yetki.StokGuncelle, cancellationToken);
+        return await ic.StokGuncelleAsync(urunId, yeniStok, cancellationToken, beklenenRowVersion);
     }
 
-    public Task UrunSilAsync(int urunId, CancellationToken cancellationToken = default, byte[]? beklenenRowVersion = null)
+    public async Task UrunSilAsync(int urunId, CancellationToken cancellationToken = default, byte[]? beklenenRowVersion = null)
     {
-        yetki.Gerektir(Yetki.UrunSil);
-        return ic.UrunSilAsync(urunId, cancellationToken, beklenenRowVersion);
+        await yetki.GerektirAsync(Yetki.UrunSil, cancellationToken);
+        await ic.UrunSilAsync(urunId, cancellationToken, beklenenRowVersion);
     }
 }
 
 public sealed class YetkiDenetimliSiparisService(ISiparisService ic, IYetkiDenetcisi yetki) : ISiparisService
 {
-    public Task<SiparisDto> SiparisOlusturAsync(SiparisOlusturIstegi istek, CancellationToken cancellationToken = default)
+    public async Task<SiparisDto> SiparisOlusturAsync(SiparisOlusturIstegi istek, CancellationToken cancellationToken = default)
     {
-        yetki.Gerektir(Yetki.SiparisOlustur);
-        return ic.SiparisOlusturAsync(istek, cancellationToken);
+        await yetki.GerektirAsync(Yetki.SiparisOlustur, cancellationToken);
+        return await ic.SiparisOlusturAsync(istek, cancellationToken);
     }
 
-    public Task<IReadOnlyList<SiparisDto>> SiparisGecmisiniGetirAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<SiparisDto>> SiparisGecmisiniGetirAsync(CancellationToken cancellationToken = default)
     {
-        yetki.Gerektir(Yetki.GecmisVeRaporGoruntule);
-        return ic.SiparisGecmisiniGetirAsync(cancellationToken);
+        await yetki.GerektirAsync(Yetki.GecmisVeRaporGoruntule, cancellationToken);
+        return await ic.SiparisGecmisiniGetirAsync(cancellationToken);
     }
 
-    public Task<SayfaliSonucDto<SiparisDto>> SiparisGecmisiSayfaGetirAsync(SiparisGecmisiSorgusu sorgu, CancellationToken cancellationToken = default)
+    public async Task<SayfaliSonucDto<SiparisDto>> SiparisGecmisiSayfaGetirAsync(SiparisGecmisiSorgusu sorgu, CancellationToken cancellationToken = default)
     {
-        yetki.Gerektir(Yetki.GecmisVeRaporGoruntule);
-        return ic.SiparisGecmisiSayfaGetirAsync(sorgu, cancellationToken);
+        await yetki.GerektirAsync(Yetki.GecmisVeRaporGoruntule, cancellationToken);
+        return await ic.SiparisGecmisiSayfaGetirAsync(sorgu, cancellationToken);
     }
 
-    public Task<SiparisOzetiDto> SiparisOzetiGetirAsync(CancellationToken cancellationToken = default)
+    public async Task<SiparisOzetiDto> SiparisOzetiGetirAsync(CancellationToken cancellationToken = default)
     {
-        yetki.Gerektir(Yetki.GecmisVeRaporGoruntule);
-        return ic.SiparisOzetiGetirAsync(cancellationToken);
+        await yetki.GerektirAsync(Yetki.GecmisVeRaporGoruntule, cancellationToken);
+        return await ic.SiparisOzetiGetirAsync(cancellationToken);
     }
 
-    public Task SiparisSilAsync(int siparisId, CancellationToken cancellationToken = default)
+    public async Task SiparisSilAsync(int siparisId, CancellationToken cancellationToken = default)
     {
-        yetki.Gerektir(Yetki.SiparisSil);
-        return ic.SiparisSilAsync(siparisId, cancellationToken);
+        await yetki.GerektirAsync(Yetki.SiparisSil, cancellationToken);
+        await ic.SiparisSilAsync(siparisId, cancellationToken);
     }
 }
 
 public sealed class YetkiDenetimliKategoriService(IKategoriService ic, IYetkiDenetcisi yetki) : IKategoriService
 {
-    public Task<IReadOnlyList<KategoriDto>> KategorileriListeleAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<KategoriDto>> KategorileriListeleAsync(CancellationToken cancellationToken = default)
     {
-        yetki.Gerektir(Yetki.UrunGoruntule);
-        return ic.KategorileriListeleAsync(cancellationToken);
+        await yetki.GerektirAsync(Yetki.UrunGoruntule, cancellationToken);
+        return await ic.KategorileriListeleAsync(cancellationToken);
     }
 
-    public Task<KategoriDto> KategoriEkleAsync(string ad, CancellationToken cancellationToken = default)
+    public async Task<KategoriDto> KategoriEkleAsync(string ad, CancellationToken cancellationToken = default)
     {
-        yetki.Gerektir(Yetki.KategoriYonetimi);
-        return ic.KategoriEkleAsync(ad, cancellationToken);
+        await yetki.GerektirAsync(Yetki.KategoriYonetimi, cancellationToken);
+        return await ic.KategoriEkleAsync(ad, cancellationToken);
     }
 
-    public Task<KategoriDto> KategoriYenidenAdlandirAsync(int kategoriId, string yeniAd, CancellationToken cancellationToken = default)
+    public async Task<KategoriDto> KategoriYenidenAdlandirAsync(int kategoriId, string yeniAd, CancellationToken cancellationToken = default)
     {
-        yetki.Gerektir(Yetki.KategoriYonetimi);
-        return ic.KategoriYenidenAdlandirAsync(kategoriId, yeniAd, cancellationToken);
+        await yetki.GerektirAsync(Yetki.KategoriYonetimi, cancellationToken);
+        return await ic.KategoriYenidenAdlandirAsync(kategoriId, yeniAd, cancellationToken);
     }
 
-    public Task KategoriSilAsync(int kategoriId, CancellationToken cancellationToken = default)
+    public async Task KategoriSilAsync(int kategoriId, CancellationToken cancellationToken = default)
     {
-        yetki.Gerektir(Yetki.KategoriYonetimi);
-        return ic.KategoriSilAsync(kategoriId, cancellationToken);
+        await yetki.GerektirAsync(Yetki.KategoriYonetimi, cancellationToken);
+        await ic.KategoriSilAsync(kategoriId, cancellationToken);
     }
 }
 
 public sealed class YetkiDenetimliRaporService(IRaporService ic, IYetkiDenetcisi yetki) : IRaporService
 {
-    public Task<IReadOnlyList<UrunSatisOzetiDto>> EnCokSatanlariGetirAsync(DateTime? baslangic, DateTime? bitis, int adet, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<UrunSatisOzetiDto>> EnCokSatanlariGetirAsync(DateTime? baslangic, DateTime? bitis, int adet, CancellationToken cancellationToken = default)
     {
-        yetki.Gerektir(Yetki.GecmisVeRaporGoruntule);
-        return ic.EnCokSatanlariGetirAsync(baslangic, bitis, adet, cancellationToken);
+        await yetki.GerektirAsync(Yetki.GecmisVeRaporGoruntule, cancellationToken);
+        return await ic.EnCokSatanlariGetirAsync(baslangic, bitis, adet, cancellationToken);
     }
 
-    public Task<IReadOnlyList<DonemOzetiDto>> GunlukOzetAsync(DateTime baslangic, DateTime bitis, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<DonemOzetiDto>> GunlukOzetAsync(DateTime baslangic, DateTime bitis, CancellationToken cancellationToken = default)
     {
-        yetki.Gerektir(Yetki.GecmisVeRaporGoruntule);
-        return ic.GunlukOzetAsync(baslangic, bitis, cancellationToken);
+        await yetki.GerektirAsync(Yetki.GecmisVeRaporGoruntule, cancellationToken);
+        return await ic.GunlukOzetAsync(baslangic, bitis, cancellationToken);
     }
 
-    public Task<IReadOnlyList<DonemOzetiDto>> AylikOzetAsync(DateTime baslangic, DateTime bitis, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<DonemOzetiDto>> AylikOzetAsync(DateTime baslangic, DateTime bitis, CancellationToken cancellationToken = default)
     {
-        yetki.Gerektir(Yetki.GecmisVeRaporGoruntule);
-        return ic.AylikOzetAsync(baslangic, bitis, cancellationToken);
+        await yetki.GerektirAsync(Yetki.GecmisVeRaporGoruntule, cancellationToken);
+        return await ic.AylikOzetAsync(baslangic, bitis, cancellationToken);
     }
 }
 
 public sealed class YetkiDenetimliSiparisDisaAktarimService(ISiparisDisaAktarimService ic, IYetkiDenetcisi yetki) : ISiparisDisaAktarimService
 {
-    public Task SiparisleriCsvAktarAsync(SiparisGecmisiSorgusu filtre, Stream hedef, CancellationToken cancellationToken = default)
+    public Task YetkiKontrolEtAsync(CancellationToken cancellationToken = default)
+        => yetki.GerektirAsync(Yetki.CsvAktarim, cancellationToken);
+
+    public async Task SiparisleriCsvAktarAsync(SiparisGecmisiSorgusu filtre, Stream hedef, CancellationToken cancellationToken = default)
     {
-        yetki.Gerektir(Yetki.CsvAktarim);
-        return ic.SiparisleriCsvAktarAsync(filtre, hedef, cancellationToken);
+        await yetki.GerektirAsync(Yetki.CsvAktarim, cancellationToken);
+        await ic.SiparisleriCsvAktarAsync(filtre, hedef, cancellationToken);
     }
 }

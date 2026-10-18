@@ -18,6 +18,16 @@ logs/
 **/logs/
 appsettings.*.local.json
 **/appsettings.*.local.json
+appsettings.local.json
+**/appsettings.local.json
+
+# Secrets
+.env
+.env.*
+*.pfx
+*.key
+*.pem
+secrets.json
 **/Logs/*.txt
 **/logs/*.txt
 

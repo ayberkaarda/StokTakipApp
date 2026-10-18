@@ -18,7 +18,7 @@ public static class DependencyInjection
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<IParolaHasher>(_ => new ParolaHasher());
         services.TryAddSingleton<IOturumBaglami, OturumBaglami>();
-        services.TryAddSingleton<IYetkiDenetcisi, OturumYetkiDenetcisi>();
+        services.TryAddScoped<IYetkiDenetcisi, OturumYetkiDenetcisi>();
         services.AddScoped<IKimlikService, KimlikService>();
 
         // Yetki denetimi dekoratörlerle eklenir; oturum yoksa her işlem reddedilir.

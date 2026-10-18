@@ -12,6 +12,12 @@ public sealed class KullaniciRepository(StokTakipDbContext context) : IKullanici
         => context.Kullanicilar.AsTracking()
             .SingleOrDefaultAsync(x => x.KullaniciId == kullaniciId, cancellationToken);
 
+    public Task<KullaniciYetkiBilgisi?> YetkiBilgisiGetirAsync(int kullaniciId, CancellationToken cancellationToken = default)
+        => context.Kullanicilar.AsNoTracking()
+            .Where(x => x.KullaniciId == kullaniciId)
+            .Select(x => new KullaniciYetkiBilgisi(x.KullaniciId, x.Rol, x.Aktif))
+            .SingleOrDefaultAsync(cancellationToken);
+
     public Task<Kullanici?> GetByKullaniciAdiAsync(string kullaniciAdi, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(kullaniciAdi);

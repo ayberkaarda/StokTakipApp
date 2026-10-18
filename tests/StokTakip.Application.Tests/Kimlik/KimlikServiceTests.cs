@@ -33,6 +33,8 @@ public class KimlikServiceTests
         return k;
     }
 
+    private void Oturum(Kullanici k) => _oturum.OturumAc(new OturumKullanicisi(k.KullaniciId, k.KullaniciAdi, k.Rol));
+
     // ---- Giriş ----
 
     [Fact]
@@ -109,10 +111,10 @@ public class KimlikServiceTests
         Assert.Equal(T0.AddMinutes(15), k.KilitBitis);
 
         _zaman.SimdiUtc = T0.AddMinutes(14).AddSeconds(59);
-        var kilit = await Assert.ThrowsAsync<HesapKilitliException>(() => _servis.GirisYapAsync("ali", Parola));
-        await Assert.ThrowsAsync<HesapKilitliException>(() => _servis.GirisYapAsync("ali", "yanlis-parola-1"));
+        var kilit = await Assert.ThrowsAsync<GecersizKimlikBilgisiException>(() => _servis.GirisYapAsync("ali", Parola));
+        await Assert.ThrowsAsync<GecersizKimlikBilgisiException>(() => _servis.GirisYapAsync("ali", "yanlis-parola-1"));
 
-        Assert.Equal(T0.AddMinutes(15), kilit.KilitBitisUtc);
+        Assert.Equal(GecersizKimlikBilgisiException.GenelMesaj, kilit.Message);
         Assert.Equal(5, k.BasarisizDenemeSayisi);
         Assert.Equal(T0.AddMinutes(15), k.KilitBitis);
         Assert.Null(_oturum.MevcutKullanici);
@@ -213,9 +215,10 @@ public class KimlikServiceTests
     public async Task ParolaPolitikasi_TurkceMesajlaReddeder(string? parola, string mesaj)
     {
         var admin = Ekle("yonetici", KullaniciRolu.Admin);
+        Oturum(admin);
 
         var hata = await Assert.ThrowsAsync<GecersizGirdiException>(
-            () => _servis.KullaniciOlusturAsync(admin.KullaniciId, "operator", parola!, KullaniciRolu.Operator));
+            () => _servis.KullaniciOlusturAsync("operator", parola!, KullaniciRolu.Operator));
 
         Assert.Equal(mesaj, hata.Message);
         Assert.Equal("Parola", hata.AlanAdi);
@@ -238,8 +241,9 @@ public class KimlikServiceTests
     public async Task KullaniciOlustur_Admin_KucukHarfAdlaHashliKaydeder()
     {
         var admin = Ekle("yonetici", KullaniciRolu.Admin);
+        Oturum(admin);
 
-        var dto = await _servis.KullaniciOlusturAsync(admin.KullaniciId, " Ali.Veli ", "Yeni-Parola-77", KullaniciRolu.Operator);
+        var dto = await _servis.KullaniciOlusturAsync(" Ali.Veli ", "Yeni-Parola-77", KullaniciRolu.Operator);
 
         Assert.Equal("ali.veli", dto.KullaniciAdi);
         Assert.Equal(KullaniciRolu.Operator, dto.Rol);
@@ -254,9 +258,10 @@ public class KimlikServiceTests
     {
         var admin = Ekle("yonetici", KullaniciRolu.Admin);
         Ekle("ali");
+        Oturum(admin);
 
         var hata = await Assert.ThrowsAsync<GecersizGirdiException>(
-            () => _servis.KullaniciOlusturAsync(admin.KullaniciId, "ALI", "Yeni-Parola-77", KullaniciRolu.Operator));
+            () => _servis.KullaniciOlusturAsync("ALI", "Yeni-Parola-77", KullaniciRolu.Operator));
 
         Assert.Equal("'ali' kullanıcı adı zaten kullanılıyor.", hata.Message);
         Assert.Equal(2, _depo.Kayitlar.Count);
@@ -268,9 +273,10 @@ public class KimlikServiceTests
     public async Task KullaniciOlustur_AdminOlmayanVeyaPasifAdmin_Yetkisiz(KullaniciRolu rol, bool aktif)
     {
         var cagiran = Ekle("cagiran", rol, aktif);
+        Oturum(cagiran);
 
         await Assert.ThrowsAsync<YetkisizIslemException>(
-            () => _servis.KullaniciOlusturAsync(cagiran.KullaniciId, "yeni", "Yeni-Parola-77", KullaniciRolu.Admin));
+            () => _servis.KullaniciOlusturAsync("yeni", "Yeni-Parola-77", KullaniciRolu.Admin));
 
         Assert.Single(_depo.Kayitlar);
     }
@@ -280,8 +286,9 @@ public class KimlikServiceTests
     [InlineData(99)]
     public async Task KullaniciOlustur_OlmayanCagiran_Yetkisiz(int cagiranId)
     {
+        if (cagiranId > 0) _oturum.OturumAc(new OturumKullanicisi(cagiranId, "hayalet", KullaniciRolu.Admin));
         await Assert.ThrowsAsync<YetkisizIslemException>(
-            () => _servis.KullaniciOlusturAsync(cagiranId, "yeni", "Yeni-Parola-77", KullaniciRolu.Admin));
+            () => _servis.KullaniciOlusturAsync("yeni", "Yeni-Parola-77", KullaniciRolu.Admin));
         Assert.Empty(_depo.Kayitlar);
     }
 
@@ -291,8 +298,9 @@ public class KimlikServiceTests
     public async Task ParolaDegistir_DogruEskiParola_YeniParolaGecerli_EskisiGecersiz()
     {
         var k = Ekle("ali");
+        Oturum(k);
 
-        await _servis.ParolaDegistirAsync(k.KullaniciId, Parola, "Baska-Parola-99");
+        await _servis.ParolaDegistirAsync(Parola, "Baska-Parola-99");
 
         await _servis.GirisYapAsync("ali", "Baska-Parola-99");
         await Assert.ThrowsAsync<GecersizKimlikBilgisiException>(() => _servis.GirisYapAsync("ali", Parola));
@@ -303,9 +311,10 @@ public class KimlikServiceTests
     {
         var k = Ekle("ali");
         var eskiHash = k.ParolaHash;
+        Oturum(k);
 
         var hata = await Assert.ThrowsAsync<GecersizGirdiException>(
-            () => _servis.ParolaDegistirAsync(k.KullaniciId, "yanlis-parola-1", "Baska-Parola-99"));
+            () => _servis.ParolaDegistirAsync("yanlis-parola-1", "Baska-Parola-99"));
 
         Assert.Equal("Mevcut parola hatalı.", hata.Message);
         Assert.Equal(1, k.BasarisizDenemeSayisi);
@@ -316,8 +325,9 @@ public class KimlikServiceTests
     public async Task ParolaDegistir_PolitikayaUymayanYeniParola_Reddedilir()
     {
         var k = Ekle("ali.veli");
+        Oturum(k);
         var hata = await Assert.ThrowsAsync<GecersizGirdiException>(
-            () => _servis.ParolaDegistirAsync(k.KullaniciId, Parola, "Ali.Veli-2026"));
+            () => _servis.ParolaDegistirAsync(Parola, "Ali.Veli-2026"));
         Assert.Equal("Parola kullanıcı adını içeremez.", hata.Message);
     }
 
@@ -326,8 +336,9 @@ public class KimlikServiceTests
     {
         var k = Ekle("ali");
         for (var i = 0; i < 5; i++) k.BasarisizGirisKaydet(T0);
+        Oturum(k);
 
-        await Assert.ThrowsAsync<HesapKilitliException>(() => _servis.ParolaDegistirAsync(k.KullaniciId, Parola, "Baska-Parola-99"));
+        await Assert.ThrowsAsync<HesapKilitliException>(() => _servis.ParolaDegistirAsync(Parola, "Baska-Parola-99"));
     }
 
     // ---- Listeleme, rol ve aktiflik, son Admin koruması ----
@@ -338,9 +349,11 @@ public class KimlikServiceTests
         var admin = Ekle("yonetici", KullaniciRolu.Admin);
         var op = Ekle("ali");
 
-        var liste = await _servis.KullaniciListeleAsync(admin.KullaniciId);
+        Oturum(admin);
+        var liste = await _servis.KullaniciListeleAsync();
         Assert.Equal(new[] { "ali", "yonetici" }, liste.Select(x => x.KullaniciAdi));
-        await Assert.ThrowsAsync<YetkisizIslemException>(() => _servis.KullaniciListeleAsync(op.KullaniciId));
+        Oturum(op);
+        await Assert.ThrowsAsync<YetkisizIslemException>(() => _servis.KullaniciListeleAsync());
     }
 
     [Fact]
@@ -348,11 +361,12 @@ public class KimlikServiceTests
     {
         var admin = Ekle("yonetici", KullaniciRolu.Admin);
         Ekle("eski.admin", KullaniciRolu.Admin, aktif: false);
+        Oturum(admin);
 
         var rol = await Assert.ThrowsAsync<GecersizIslemException>(
-            () => _servis.RolDegistirAsync(admin.KullaniciId, admin.KullaniciId, KullaniciRolu.Operator));
+            () => _servis.RolDegistirAsync(admin.KullaniciId, KullaniciRolu.Operator));
         var pasif = await Assert.ThrowsAsync<GecersizIslemException>(
-            () => _servis.AktiflikDegistirAsync(admin.KullaniciId, admin.KullaniciId, false));
+            () => _servis.AktiflikDegistirAsync(admin.KullaniciId, false));
 
         Assert.Equal("Sistemde en az bir aktif yönetici (Admin) kalmalıdır.", rol.Message);
         Assert.Equal(rol.Message, pasif.Message);
@@ -366,11 +380,12 @@ public class KimlikServiceTests
     {
         var a = Ekle("admin.a", KullaniciRolu.Admin);
         var b = Ekle("admin.b", KullaniciRolu.Admin);
+        Oturum(a);
 
-        var dto = await _servis.RolDegistirAsync(a.KullaniciId, b.KullaniciId, KullaniciRolu.Operator);
+        var dto = await _servis.RolDegistirAsync(b.KullaniciId, KullaniciRolu.Operator);
 
         Assert.Equal(KullaniciRolu.Operator, dto.Rol);
-        await Assert.ThrowsAsync<GecersizIslemException>(() => _servis.AktiflikDegistirAsync(a.KullaniciId, a.KullaniciId, false));
+        await Assert.ThrowsAsync<GecersizIslemException>(() => _servis.AktiflikDegistirAsync(a.KullaniciId, false));
         await _isBirimi.Received(2).BeginTransactionAsync(IsolationLevel.Serializable, Arg.Any<CancellationToken>());
     }
 
@@ -379,10 +394,11 @@ public class KimlikServiceTests
     {
         var admin = Ekle("yonetici", KullaniciRolu.Admin);
         var op = Ekle("ali");
+        Oturum(admin);
 
-        Assert.False((await _servis.AktiflikDegistirAsync(admin.KullaniciId, op.KullaniciId, false)).Aktif);
-        Assert.True((await _servis.AktiflikDegistirAsync(admin.KullaniciId, op.KullaniciId, true)).Aktif);
-        Assert.Equal(KullaniciRolu.Admin, (await _servis.RolDegistirAsync(admin.KullaniciId, op.KullaniciId, KullaniciRolu.Admin)).Rol);
+        Assert.False((await _servis.AktiflikDegistirAsync(op.KullaniciId, false)).Aktif);
+        Assert.True((await _servis.AktiflikDegistirAsync(op.KullaniciId, true)).Aktif);
+        Assert.Equal(KullaniciRolu.Admin, (await _servis.RolDegistirAsync(op.KullaniciId, KullaniciRolu.Admin)).Rol);
     }
 
     [Fact]
@@ -391,9 +407,10 @@ public class KimlikServiceTests
         Ekle("yonetici", KullaniciRolu.Admin);
         var op = Ekle("ali");
         var diger = Ekle("veli");
+        Oturum(op);
 
-        await Assert.ThrowsAsync<YetkisizIslemException>(() => _servis.RolDegistirAsync(op.KullaniciId, op.KullaniciId, KullaniciRolu.Admin));
-        await Assert.ThrowsAsync<YetkisizIslemException>(() => _servis.AktiflikDegistirAsync(op.KullaniciId, diger.KullaniciId, false));
+        await Assert.ThrowsAsync<YetkisizIslemException>(() => _servis.RolDegistirAsync(op.KullaniciId, KullaniciRolu.Admin));
+        await Assert.ThrowsAsync<YetkisizIslemException>(() => _servis.AktiflikDegistirAsync(diger.KullaniciId, false));
         Assert.Equal(KullaniciRolu.Operator, op.Rol);
         Assert.True(diger.Aktif);
     }
@@ -402,22 +419,24 @@ public class KimlikServiceTests
     public async Task RolDegistir_OlmayanHedef_KayitBulunamadi_TanimsizRolGecersizGirdi()
     {
         var admin = Ekle("yonetici", KullaniciRolu.Admin);
-        await Assert.ThrowsAsync<KayitBulunamadiException>(() => _servis.RolDegistirAsync(admin.KullaniciId, 42, KullaniciRolu.Operator));
-        await Assert.ThrowsAsync<GecersizGirdiException>(() => _servis.RolDegistirAsync(admin.KullaniciId, admin.KullaniciId, (KullaniciRolu)9));
+        Oturum(admin);
+        await Assert.ThrowsAsync<KayitBulunamadiException>(() => _servis.RolDegistirAsync(42, KullaniciRolu.Operator));
+        await Assert.ThrowsAsync<GecersizGirdiException>(() => _servis.RolDegistirAsync(admin.KullaniciId, (KullaniciRolu)9));
     }
 
     [Fact]
     public async Task OturumdakiKullanicininRoluDegisince_OturumGuncellenir_PasiflesinceKapanir()
     {
         var a = Ekle("admin.a", KullaniciRolu.Admin);
-        Ekle("admin.b", KullaniciRolu.Admin);
+        var b = Ekle("admin.b", KullaniciRolu.Admin);
+        Ekle("admin.c", KullaniciRolu.Admin);
         await _servis.GirisYapAsync("admin.a", Parola);
 
-        await _servis.RolDegistirAsync(a.KullaniciId, a.KullaniciId, KullaniciRolu.Operator);
+        await _servis.RolDegistirAsync(a.KullaniciId, KullaniciRolu.Operator);
         Assert.Equal(KullaniciRolu.Operator, _oturum.MevcutKullanici!.Rol);
 
-        var b = _depo.Kayitlar.Single(x => x.KullaniciAdi == "admin.b");
-        await _servis.AktiflikDegistirAsync(b.KullaniciId, a.KullaniciId, false);
+        await _servis.GirisYapAsync("admin.b", Parola);
+        await _servis.AktiflikDegistirAsync(b.KullaniciId, false);
         Assert.Null(_oturum.MevcutKullanici);
     }
 
@@ -483,10 +502,10 @@ public class KimlikServiceTests
         await Kaydet(() => _servis.GirisYapAsync("yok.kullanici", gizli));
         await Kaydet(() => _servis.GirisYapAsync(gizli, gizli));
         await Kaydet(() => _servis.GirisYapAsync("yonetici", gizli));
-        await Kaydet(() => _servis.KullaniciOlusturAsync(admin.KullaniciId, "yeni", gizli, KullaniciRolu.Operator));
-        await Kaydet(() => _servis.KullaniciOlusturAsync(admin.KullaniciId, "yeni2", "kisa", KullaniciRolu.Operator));
-        await Kaydet(() => _servis.ParolaDegistirAsync(admin.KullaniciId, gizli + "x", gizli + "2"));
-        await Kaydet(() => _servis.ParolaDegistirAsync(admin.KullaniciId, gizli, gizli + "3"));
+        await Kaydet(() => _servis.KullaniciOlusturAsync("yeni", gizli, KullaniciRolu.Operator));
+        await Kaydet(() => _servis.KullaniciOlusturAsync("yeni2", "kisa", KullaniciRolu.Operator));
+        await Kaydet(() => _servis.ParolaDegistirAsync(gizli + "x", gizli + "2"));
+        await Kaydet(() => _servis.ParolaDegistirAsync(gizli, gizli + "3"));
         await Kaydet(() => _servis.IlkAdminOlusturAsync("ikinci", gizli));
 
         var yeni = _depo.Kayitlar.Single(x => x.KullaniciAdi == "yeni");

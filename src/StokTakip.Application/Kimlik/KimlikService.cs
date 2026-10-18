@@ -87,6 +87,7 @@ public sealed class KimlikService : IKimlikService
 
     public async Task<KullaniciDto> GirisYapAsync(string kullaniciAdi, string parola, CancellationToken cancellationToken = default)
     {
+        var baslangicNesli = _oturum.Anlik.Nesil;
         try
         {
             for (var deneme = 1; ; deneme++)
@@ -101,12 +102,16 @@ public sealed class KimlikService : IKimlikService
                 }
 
                 var simdi = SimdiUtc;
-                if (kullanici.KilitliMi(simdi))
+                var kilitli = kullanici.KilitliMi(simdi);
+
+                // Kilitli hesapta da aynı maliyetli doğrulama yapılır; sonuç kullanılmaz, yanıt türü ve süresi ayırt edilemez.
+                var sonuc = _parolaHasher.Dogrula(parola, kullanici.ParolaHash, kullanici.ParolaTuzu, kullanici.Iterasyon);
+                if (kilitli)
                 {
-                    throw new HesapKilitliException(kullanici.KilitBitis!.Value);
+                    _logger.LogWarning("Kilitli hesaba giriş denemesi reddedildi. KullaniciId={KullaniciId}", kullanici.KullaniciId);
+                    throw new GecersizKimlikBilgisiException();
                 }
 
-                var sonuc = _parolaHasher.Dogrula(parola, kullanici.ParolaHash, kullanici.ParolaTuzu, kullanici.Iterasyon);
                 if (!kullanici.Aktif)
                 {
                     throw new GecersizKimlikBilgisiException();
@@ -126,6 +131,11 @@ public sealed class KimlikService : IKimlikService
                         throw new GecersizKimlikBilgisiException();
                     }
 
+                    if (_oturum.Anlik.Nesil != baslangicNesli)
+                    {
+                        throw GirisIptal(kullanici.KullaniciId);
+                    }
+
                     if (sonuc == ParolaDogrulamaSonucu.BasariliYenidenHashGerekli)
                     {
                         var yeni = _parolaHasher.Hashle(parola);
@@ -140,7 +150,11 @@ public sealed class KimlikService : IKimlikService
                     continue;
                 }
 
-                _oturum.OturumAc(new OturumKullanicisi(kullanici.KullaniciId, kullanici.KullaniciAdi, kullanici.Rol));
+                if (!_oturum.OturumAc(new OturumKullanicisi(kullanici.KullaniciId, kullanici.KullaniciAdi, kullanici.Rol), baslangicNesli))
+                {
+                    throw GirisIptal(kullanici.KullaniciId);
+                }
+
                 _logger.LogInformation("Giriş yapıldı. KullaniciId={KullaniciId}", kullanici.KullaniciId);
                 return KullaniciDto.Olustur(kullanici);
             }
@@ -154,11 +168,11 @@ public sealed class KimlikService : IKimlikService
     public void CikisYap() => _oturum.OturumuKapat();
 
     public async Task<KullaniciDto> KullaniciOlusturAsync(
-        int cagiranKullaniciId, string kullaniciAdi, string parola, KullaniciRolu rol, CancellationToken cancellationToken = default)
+        string kullaniciAdi, string parola, KullaniciRolu rol, CancellationToken cancellationToken = default)
     {
         try
         {
-            await AdminDogrulaAsync(cagiranKullaniciId, cancellationToken);
+            var cagiran = await AdminDogrulaAsync(cancellationToken);
             var ad = Kullanici.KullaniciAdiDogrula(kullaniciAdi);
             RolDogrula(rol);
             ParolaPolitikasi.Dogrula(parola, ad);
@@ -173,7 +187,7 @@ public sealed class KimlikService : IKimlikService
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             _logger.LogInformation(
                 "Kullanıcı oluşturuldu. KullaniciId={KullaniciId}, Rol={Rol}, Olusturan={CagiranId}",
-                kullanici.KullaniciId, rol, cagiranKullaniciId);
+                kullanici.KullaniciId, rol, cagiran.KullaniciId);
             return KullaniciDto.Olustur(kullanici);
         }
         catch (DomainException ex) when (_logger.IhlaliLogla(ex, nameof(KullaniciOlusturAsync)))
@@ -182,11 +196,12 @@ public sealed class KimlikService : IKimlikService
         }
     }
 
-    public async Task ParolaDegistirAsync(int kullaniciId, string eskiParola, string yeniParola, CancellationToken cancellationToken = default)
+    public async Task ParolaDegistirAsync(string eskiParola, string yeniParola, CancellationToken cancellationToken = default)
     {
         try
         {
-            var kullanici = await KullaniciyiBulAsync(kullaniciId, cancellationToken);
+            var oturumdaki = await GuncelYetkiDogrulama.DogrulaAsync(_oturum, _kullaniciRepository, KullaniciRolu.Operator, cancellationToken);
+            var kullanici = await KullaniciyiBulAsync(oturumdaki.KullaniciId, cancellationToken);
             ParolaPolitikasi.Dogrula(yeniParola, kullanici.KullaniciAdi);
 
             var simdi = SimdiUtc;
@@ -196,11 +211,6 @@ public sealed class KimlikService : IKimlikService
             }
 
             var sonuc = _parolaHasher.Dogrula(eskiParola, kullanici.ParolaHash, kullanici.ParolaTuzu, kullanici.Iterasyon);
-            if (!kullanici.Aktif)
-            {
-                throw new GecersizKimlikBilgisiException();
-            }
-
             if (sonuc == ParolaDogrulamaSonucu.Basarisiz)
             {
                 kullanici.BasarisizGirisKaydet(simdi);
@@ -212,7 +222,7 @@ public sealed class KimlikService : IKimlikService
             kullanici.ParolayiAyarla(ozet.Hash, ozet.Tuz, ozet.Iterasyon);
             kullanici.BasariliGirisKaydet(simdi);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
-            _logger.LogInformation("Parola değiştirildi. KullaniciId={KullaniciId}", kullaniciId);
+            _logger.LogInformation("Parola değiştirildi. KullaniciId={KullaniciId}", kullanici.KullaniciId);
         }
         catch (DomainException ex) when (_logger.IhlaliLogla(ex, nameof(ParolaDegistirAsync)))
         {
@@ -220,21 +230,20 @@ public sealed class KimlikService : IKimlikService
         }
     }
 
-    public async Task<IReadOnlyList<KullaniciDto>> KullaniciListeleAsync(int cagiranKullaniciId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<KullaniciDto>> KullaniciListeleAsync(CancellationToken cancellationToken = default)
     {
-        await AdminDogrulaAsync(cagiranKullaniciId, cancellationToken);
+        await AdminDogrulaAsync(cancellationToken);
         var kullanicilar = await _kullaniciRepository.GetAllAsync(cancellationToken);
         return kullanicilar.Select(KullaniciDto.Olustur).ToList();
     }
 
-    public async Task<KullaniciDto> RolDegistirAsync(
-        int cagiranKullaniciId, int kullaniciId, KullaniciRolu yeniRol, CancellationToken cancellationToken = default)
+    public async Task<KullaniciDto> RolDegistirAsync(int kullaniciId, KullaniciRolu yeniRol, CancellationToken cancellationToken = default)
     {
         try
         {
             RolDogrula(yeniRol);
             await using var transaction = await _unitOfWork.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-            await AdminDogrulaAsync(cagiranKullaniciId, cancellationToken);
+            var cagiran = await AdminDogrulaAsync(cancellationToken);
             var hedef = await KullaniciyiBulAsync(kullaniciId, cancellationToken);
             if (hedef is { Aktif: true, Rol: KullaniciRolu.Admin } && yeniRol != KullaniciRolu.Admin)
             {
@@ -247,7 +256,7 @@ public sealed class KimlikService : IKimlikService
             OturumuEsitle(hedef);
             _logger.LogInformation(
                 "Kullanıcı rolü değişti. KullaniciId={KullaniciId}, Rol={Rol}, Degistiren={CagiranId}",
-                kullaniciId, yeniRol, cagiranKullaniciId);
+                kullaniciId, yeniRol, cagiran.KullaniciId);
             return KullaniciDto.Olustur(hedef);
         }
         catch (DomainException ex) when (_logger.IhlaliLogla(ex, nameof(RolDegistirAsync)))
@@ -256,13 +265,12 @@ public sealed class KimlikService : IKimlikService
         }
     }
 
-    public async Task<KullaniciDto> AktiflikDegistirAsync(
-        int cagiranKullaniciId, int kullaniciId, bool aktif, CancellationToken cancellationToken = default)
+    public async Task<KullaniciDto> AktiflikDegistirAsync(int kullaniciId, bool aktif, CancellationToken cancellationToken = default)
     {
         try
         {
             await using var transaction = await _unitOfWork.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-            await AdminDogrulaAsync(cagiranKullaniciId, cancellationToken);
+            var cagiran = await AdminDogrulaAsync(cancellationToken);
             var hedef = await KullaniciyiBulAsync(kullaniciId, cancellationToken);
             if (!aktif && hedef is { Aktif: true, Rol: KullaniciRolu.Admin })
             {
@@ -275,7 +283,7 @@ public sealed class KimlikService : IKimlikService
             OturumuEsitle(hedef);
             _logger.LogInformation(
                 "Kullanıcı aktifliği değişti. KullaniciId={KullaniciId}, Aktif={Aktif}, Degistiren={CagiranId}",
-                kullaniciId, aktif, cagiranKullaniciId);
+                kullaniciId, aktif, cagiran.KullaniciId);
             return KullaniciDto.Olustur(hedef);
         }
         catch (DomainException ex) when (_logger.IhlaliLogla(ex, nameof(AktiflikDegistirAsync)))
@@ -284,15 +292,13 @@ public sealed class KimlikService : IKimlikService
         }
     }
 
-    private async Task AdminDogrulaAsync(int cagiranKullaniciId, CancellationToken cancellationToken)
+    private Task<OturumKullanicisi> AdminDogrulaAsync(CancellationToken cancellationToken)
+        => GuncelYetkiDogrulama.DogrulaAsync(_oturum, _kullaniciRepository, KullaniciRolu.Admin, cancellationToken);
+
+    private OperationCanceledException GirisIptal(int kullaniciId)
     {
-        var cagiran = cagiranKullaniciId > 0
-            ? await _kullaniciRepository.GetByIdAsync(cagiranKullaniciId, cancellationToken)
-            : null;
-        if (cagiran is not { Aktif: true, Rol: KullaniciRolu.Admin })
-        {
-            throw new YetkisizIslemException();
-        }
+        _logger.LogInformation("Giriş, oturum durumu değiştiği için iptal edildi. KullaniciId={KullaniciId}", kullaniciId);
+        return new OperationCanceledException("Giriş sırasında oturum durumu değişti; giriş iptal edildi.");
     }
 
     private async Task SonAdminKorumasiAsync(CancellationToken cancellationToken)
@@ -311,18 +317,19 @@ public sealed class KimlikService : IKimlikService
 
     private void OturumuEsitle(Kullanici kullanici)
     {
-        if (_oturum.MevcutKullanici?.KullaniciId != kullanici.KullaniciId)
+        var anlik = _oturum.Anlik;
+        if (anlik.Kullanici?.KullaniciId != kullanici.KullaniciId)
         {
             return;
         }
 
         if (kullanici.Aktif)
         {
-            _oturum.OturumAc(new OturumKullanicisi(kullanici.KullaniciId, kullanici.KullaniciAdi, kullanici.Rol));
+            _oturum.OturumAc(new OturumKullanicisi(kullanici.KullaniciId, kullanici.KullaniciAdi, kullanici.Rol), anlik.Nesil);
         }
         else
         {
-            _oturum.OturumuKapat();
+            _oturum.OturumuKapat(anlik.Nesil);
         }
     }
 

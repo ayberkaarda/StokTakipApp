@@ -16,8 +16,21 @@ internal sealed class BellekKullaniciRepository : IKullaniciRepository
     public Task<Kullanici?> GetByIdAsync(int kullaniciId, CancellationToken cancellationToken = default)
         => Task.FromResult(Kayitlar.SingleOrDefault(x => x.KullaniciId == kullaniciId));
 
-    public Task<Kullanici?> GetByKullaniciAdiAsync(string kullaniciAdi, CancellationToken cancellationToken = default)
-        => Task.FromResult(Kayitlar.SingleOrDefault(x => x.KullaniciAdi == kullaniciAdi));
+    public Task<Domain.KullaniciYetkiBilgisi?> YetkiBilgisiGetirAsync(int kullaniciId, CancellationToken cancellationToken = default)
+        => Task.FromResult(Kayitlar.Where(x => x.KullaniciId == kullaniciId)
+            .Select(x => new Domain.KullaniciYetkiBilgisi(x.KullaniciId, x.Rol, x.Aktif)).SingleOrDefault());
+
+    public Func<Task>? KullaniciAdiOkununca { get; set; }
+
+    public async Task<Kullanici?> GetByKullaniciAdiAsync(string kullaniciAdi, CancellationToken cancellationToken = default)
+    {
+        if (KullaniciAdiOkununca is { } kanca)
+        {
+            await kanca();
+        }
+
+        return Kayitlar.SingleOrDefault(x => x.KullaniciAdi == kullaniciAdi);
+    }
 
     public Task<IReadOnlyList<Kullanici>> GetAllAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<Kullanici>>(Kayitlar.OrderBy(x => x.KullaniciAdi, StringComparer.Ordinal).ToList());
