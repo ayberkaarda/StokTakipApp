@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using StokTakip.Application.Denetim;
 using StokTakip.Application.Dtos;
 using StokTakip.Application.Mapping;
 using StokTakip.Domain;
@@ -19,6 +20,7 @@ public sealed class SiparisService : ISiparisService
     private readonly IUnitOfWork _unitOfWork;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<SiparisService> _logger;
+    private readonly IDenetimKaydedici _denetim;
 
     public SiparisService(
         ISiparisRepository siparisRepository,
@@ -35,7 +37,19 @@ public sealed class SiparisService : ISiparisService
         IUnitOfWork unitOfWork,
         TimeProvider timeProvider,
         ILogger<SiparisService> logger)
+        : this(siparisRepository, urunRepository, unitOfWork, timeProvider, logger, NullDenetimKaydedici.Instance)
     {
+    }
+
+    public SiparisService(
+        ISiparisRepository siparisRepository,
+        IUrunRepository urunRepository,
+        IUnitOfWork unitOfWork,
+        TimeProvider timeProvider,
+        ILogger<SiparisService> logger,
+        IDenetimKaydedici denetim)
+    {
+        _denetim = denetim ?? throw new ArgumentNullException(nameof(denetim));
         _siparisRepository = siparisRepository ?? throw new ArgumentNullException(nameof(siparisRepository));
         _urunRepository = urunRepository ?? throw new ArgumentNullException(nameof(urunRepository));
         _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
@@ -64,9 +78,17 @@ public sealed class SiparisService : ISiparisService
                 var urun = await _urunRepository.GetByIdAsync(istek.UrunId, cancellationToken)
                     ?? throw new KayitBulunamadiException(UrunKayitTuru, istek.UrunId);
 
+                var eskiStok = urun.Stok;
                 var siparis = Siparis.Olustur(urun, istek.Adet, _timeProvider.GetLocalNow().DateTime);
                 await _siparisRepository.AddAsync(siparis, cancellationToken);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
+                var no = DenetimMetni.Sayi(siparis.SiparisId);
+                await _denetim.KaydetVeYazAsync(
+                    new DenetimOlayi(
+                        DenetimIslemi.SiparisOlusturuldu, DenetimVarlikTurleri.Siparis,
+                        $"Sipariş #{no} oluşturuldu: {urun.UrunAdi} × {DenetimMetni.Sayi(siparis.Adet)}, kalan stok {DenetimMetni.Sayi(urun.Stok)} ({DenetimMetni.Degisim(eskiStok, urun.Stok)})",
+                        siparis.SiparisId, urun.UrunAdi, DenetimMetni.Sayi(eskiStok), DenetimMetni.Sayi(urun.Stok), -siparis.Adet),
+                    cancellationToken);
                 return siparis.ToDto();
             }, cancellationToken);
 
@@ -129,7 +151,12 @@ public sealed class SiparisService : ISiparisService
                     ?? await _urunRepository.GetByIdAsync(siparis.UrunId, cancellationToken)
                     ?? throw new KayitBulunamadiException(UrunKayitTuru, siparis.UrunId);
 
+                var eskiStok = urun.Stok;
                 siparis.Sil(urun);
+                _denetim.Kaydet(new DenetimOlayi(
+                    DenetimIslemi.SiparisSilindi, DenetimVarlikTurleri.Siparis,
+                    $"Sipariş #{DenetimMetni.Sayi(siparis.SiparisId)} silindi: {urun.UrunAdi} (ürün #{DenetimMetni.Sayi(urun.UrunId)}) stoğuna {DenetimMetni.Sayi(siparis.Adet)} iade edildi ({DenetimMetni.Degisim(eskiStok, urun.Stok)})",
+                    siparis.SiparisId, urun.UrunAdi, DenetimMetni.Sayi(eskiStok), DenetimMetni.Sayi(urun.Stok), siparis.Adet));
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
             }, cancellationToken);
 

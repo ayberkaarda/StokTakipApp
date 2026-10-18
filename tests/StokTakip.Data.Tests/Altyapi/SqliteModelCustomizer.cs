@@ -30,5 +30,10 @@ internal sealed class SqliteModelCustomizer(ModelCustomizerDependencies dependen
         modelBuilder.Entity<Siparis>()
             .Property(x => x.Tarih)
             .HasDefaultValueSql("datetime('now', 'localtime')");
+
+        // SYSUTCDATETIME() karşılığı: veritabanının UTC saati, milisaniyeli.
+        modelBuilder.Entity<DenetimKaydi>()
+            .Property(x => x.Zaman)
+            .HasDefaultValueSql("strftime('%Y-%m-%d %H:%M:%f', 'now')");
     }
 }

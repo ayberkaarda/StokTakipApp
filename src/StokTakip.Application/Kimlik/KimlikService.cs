@@ -1,6 +1,7 @@
 using System.Data;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using StokTakip.Application.Denetim;
 using StokTakip.Application.Services;
 using StokTakip.Domain;
 using StokTakip.Domain.Entities;
@@ -12,6 +13,9 @@ namespace StokTakip.Application.Kimlik;
 /// <remarks>Parolalar, özetler ve kullanıcı adları günlüğe yazılmaz; yalnızca KullaniciId yazılır.</remarks>
 public sealed class KimlikService : IKimlikService
 {
+    /// <summary>Eşzamanlı ilk kurulumlardan kaybedene verilen mesaj.</summary>
+    public const string KurulumTamamlandiMesaji = "Kurulum zaten tamamlandı.";
+
     private const string KullaniciKayitTuru = "Kullanıcı";
     private const int MaksimumKayitDenemesi = 10;
 
@@ -21,6 +25,7 @@ public sealed class KimlikService : IKimlikService
     private readonly IOturumBaglami _oturum;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<KimlikService> _logger;
+    private readonly IDenetimKaydedici _denetim;
 
     public KimlikService(
         IKullaniciRepository kullaniciRepository,
@@ -39,7 +44,20 @@ public sealed class KimlikService : IKimlikService
         IOturumBaglami oturum,
         TimeProvider timeProvider,
         ILogger<KimlikService> logger)
+        : this(kullaniciRepository, unitOfWork, parolaHasher, oturum, timeProvider, logger, NullDenetimKaydedici.Instance)
     {
+    }
+
+    public KimlikService(
+        IKullaniciRepository kullaniciRepository,
+        IUnitOfWork unitOfWork,
+        IParolaHasher parolaHasher,
+        IOturumBaglami oturum,
+        TimeProvider timeProvider,
+        ILogger<KimlikService> logger,
+        IDenetimKaydedici denetim)
+    {
+        _denetim = denetim ?? throw new ArgumentNullException(nameof(denetim));
         _kullaniciRepository = kullaniciRepository ?? throw new ArgumentNullException(nameof(kullaniciRepository));
         _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
         _parolaHasher = parolaHasher ?? throw new ArgumentNullException(nameof(parolaHasher));
@@ -65,17 +83,37 @@ public sealed class KimlikService : IKimlikService
             }
 
             var ozet = _parolaHasher.Hashle(parola);
-
-            await using var transaction = await _unitOfWork.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-            if (await _kullaniciRepository.HerhangiBiriVarMiAsync(cancellationToken))
+            var kullanici = new Kullanici(ad, ozet.Hash, ozet.Tuz, ozet.Iterasyon, KullaniciRolu.Admin);
+            try
             {
-                throw IlkKurulumTamamlandi();
+                // Sayım ve ekleme aynı Serializable transaction'da: eşzamanlı ikinci kurulum ya burada bekleyip
+                // kullanıcıyı görür ya da kilitlenme/benzersizlik hatası alır; ikisi de aynı mesaja çevrilir.
+                await using var transaction = await _unitOfWork.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+                if (await _kullaniciRepository.HerhangiBiriVarMiAsync(cancellationToken))
+                {
+                    throw new GecersizIslemException(KurulumTamamlandiMesaji);
+                }
+
+                await _kullaniciRepository.AddAsync(kullanici, cancellationToken);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+                await _denetim.KaydetVeYazAsync(
+                    new DenetimOlayi(
+                        DenetimIslemi.IlkAdminOlusturuldu, DenetimVarlikTurleri.Kullanici,
+                        $"İlk yönetici {kullanici.KullaniciAdi} oluşturuldu", kullanici.KullaniciId, kullanici.KullaniciAdi,
+                        YeniDeger: $"Rol={KullaniciRolu.Admin}"),
+                    cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+            }
+            catch (Exception ex) when (ex is not (DomainException or OperationCanceledException))
+            {
+                if (await KurulumYapilmisMiAsync())
+                {
+                    throw new GecersizIslemException(KurulumTamamlandiMesaji);
+                }
+
+                throw;
             }
 
-            var kullanici = new Kullanici(ad, ozet.Hash, ozet.Tuz, ozet.Iterasyon, KullaniciRolu.Admin);
-            await _kullaniciRepository.AddAsync(kullanici, cancellationToken);
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
             _logger.LogInformation("İlk yönetici oluşturuldu. KullaniciId={KullaniciId}", kullanici.KullaniciId);
             return KullaniciDto.Olustur(kullanici);
         }
@@ -88,13 +126,32 @@ public sealed class KimlikService : IKimlikService
     public async Task<KullaniciDto> GirisYapAsync(string kullaniciAdi, string parola, CancellationToken cancellationToken = default)
     {
         var baslangicNesli = _oturum.Anlik.Nesil;
+        (int Id, string Ad)? bulunan = null;
         try
+        {
+            try
+            {
+                return await GirisDongusuAsync();
+            }
+            catch (GecersizKimlikBilgisiException)
+            {
+                await BasarisizGirisKaydetAsync(kullaniciAdi, bulunan, cancellationToken);
+                throw;
+            }
+        }
+        catch (DomainException ex) when (_logger.IhlaliLogla(ex, nameof(GirisYapAsync)))
+        {
+            throw;
+        }
+
+        async Task<KullaniciDto> GirisDongusuAsync()
         {
             for (var deneme = 1; ; deneme++)
             {
                 var kullanici = Kullanici.KullaniciAdiNormallestir(kullaniciAdi, out var ad)
                     ? await _kullaniciRepository.GetByKullaniciAdiAsync(ad, cancellationToken)
                     : null;
+                bulunan = kullanici is null ? null : (kullanici.KullaniciId, kullanici.KullaniciAdi);
                 if (kullanici is null)
                 {
                     _parolaHasher.SahteDogrula(parola);
@@ -155,17 +212,84 @@ public sealed class KimlikService : IKimlikService
                     throw GirisIptal(kullanici.KullaniciId);
                 }
 
+                // Kaydı yazılamayan giriş geçerli sayılmaz: açılan oturum geri kapatılır.
+                try
+                {
+                    await _denetim.KaydetVeYazAsync(
+                        new DenetimOlayi(
+                            DenetimIslemi.GirisBasarili, DenetimVarlikTurleri.Oturum, $"{kullanici.KullaniciAdi} giriş yaptı",
+                            kullanici.KullaniciId, kullanici.KullaniciAdi)
+                        {
+                            Aktor = new DenetimAktoru(kullanici.KullaniciId, kullanici.KullaniciAdi),
+                        },
+                        cancellationToken);
+                }
+                catch
+                {
+                    _oturum.OturumuKapat(baslangicNesli + 1);
+                    throw;
+                }
+
                 _logger.LogInformation("Giriş yapıldı. KullaniciId={KullaniciId}", kullanici.KullaniciId);
                 return KullaniciDto.Olustur(kullanici);
             }
         }
-        catch (DomainException ex) when (_logger.IhlaliLogla(ex, nameof(GirisYapAsync)))
+    }
+
+    /// <remarks>
+    /// Denenen kullanıcı adı yalnızca geçerli biçimdeyse (parola yanlışlıkla bu alana yazılmış olabilir; geçersiz biçimdeki metin
+    /// hiç yazılmaz) temizlenerek kaydedilir. Kayıt yazılamazsa asıl hata korunur.
+    /// </remarks>
+    private async Task BasarisizGirisKaydetAsync(string? denenenAd, (int Id, string Ad)? bulunan, CancellationToken cancellationToken)
+    {
+        var deneme = Kullanici.KullaniciAdiNormallestir(denenenAd, out var normal) ? LogTemizle.Metin(normal) : null;
+        var olay = bulunan is { } k
+            ? new DenetimOlayi(
+                DenetimIslemi.GirisBasarisiz, DenetimVarlikTurleri.Oturum, $"{k.Ad} için başarısız giriş denemesi", k.Id, k.Ad)
+            {
+                Aktor = new DenetimAktoru(k.Id, k.Ad),
+            }
+            : new DenetimOlayi(
+                DenetimIslemi.GirisBasarisiz, DenetimVarlikTurleri.Oturum,
+                deneme is null
+                    ? "Geçersiz biçimde kullanıcı adıyla başarısız giriş denemesi"
+                    : $"Bilinmeyen kullanıcı adıyla başarısız giriş denemesi: {deneme}",
+                VarlikAdi: deneme)
+            {
+                Aktor = new DenetimAktoru(null, deneme ?? DenetimKaydi.SistemKullaniciAdi),
+            };
+
+        try
         {
-            throw;
+            await _denetim.KaydetVeYazAsync(olay, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Başarısız giriş denetim kaydına yazılamadı.");
         }
     }
 
     public void CikisYap() => _oturum.OturumuKapat();
+
+    public async Task CikisYapAsync(CancellationToken cancellationToken = default)
+    {
+        OturumAnligi anlik;
+        do
+        {
+            anlik = _oturum.Anlik;
+        }
+        while (!_oturum.OturumuKapat(anlik.Nesil));
+
+        if (anlik.Kullanici is { } k)
+        {
+            await _denetim.KaydetVeYazAsync(
+                new DenetimOlayi(DenetimIslemi.CikisYapildi, DenetimVarlikTurleri.Oturum, $"{k.KullaniciAdi} çıkış yaptı", k.KullaniciId, k.KullaniciAdi)
+                {
+                    Aktor = new DenetimAktoru(k.KullaniciId, k.KullaniciAdi),
+                },
+                cancellationToken);
+        }
+    }
 
     public async Task<KullaniciDto> KullaniciOlusturAsync(
         string kullaniciAdi, string parola, KullaniciRolu rol, CancellationToken cancellationToken = default)
@@ -183,8 +307,19 @@ public sealed class KimlikService : IKimlikService
 
             var ozet = _parolaHasher.Hashle(parola);
             var kullanici = new Kullanici(ad, ozet.Hash, ozet.Tuz, ozet.Iterasyon, rol);
-            await _kullaniciRepository.AddAsync(kullanici, cancellationToken);
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await using (var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken: cancellationToken))
+            {
+                await _kullaniciRepository.AddAsync(kullanici, cancellationToken);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+                await _denetim.KaydetVeYazAsync(
+                    new DenetimOlayi(
+                        DenetimIslemi.KullaniciOlusturuldu, DenetimVarlikTurleri.Kullanici,
+                        $"{kullanici.KullaniciAdi} kullanıcısı oluşturuldu (rol: {rol})", kullanici.KullaniciId, kullanici.KullaniciAdi,
+                        YeniDeger: $"Rol={rol}"),
+                    cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+            }
+
             _logger.LogInformation(
                 "Kullanıcı oluşturuldu. KullaniciId={KullaniciId}, Rol={Rol}, Olusturan={CagiranId}",
                 kullanici.KullaniciId, rol, cagiran.KullaniciId);
@@ -221,6 +356,9 @@ public sealed class KimlikService : IKimlikService
             var ozet = _parolaHasher.Hashle(yeniParola);
             kullanici.ParolayiAyarla(ozet.Hash, ozet.Tuz, ozet.Iterasyon);
             kullanici.BasariliGirisKaydet(simdi);
+            _denetim.Kaydet(new DenetimOlayi(
+                DenetimIslemi.ParolaDegisti, DenetimVarlikTurleri.Kullanici, $"{kullanici.KullaniciAdi} parolasını değiştirdi",
+                kullanici.KullaniciId, kullanici.KullaniciAdi));
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             _logger.LogInformation("Parola değiştirildi. KullaniciId={KullaniciId}", kullanici.KullaniciId);
         }
@@ -250,7 +388,11 @@ public sealed class KimlikService : IKimlikService
                 await SonAdminKorumasiAsync(cancellationToken);
             }
 
+            var eskiRol = hedef.Rol;
             hedef.RolAta(yeniRol);
+            _denetim.Kaydet(new DenetimOlayi(
+                DenetimIslemi.RolDegisti, DenetimVarlikTurleri.Kullanici, $"{hedef.KullaniciAdi} rolü {eskiRol} → {yeniRol}",
+                hedef.KullaniciId, hedef.KullaniciAdi, eskiRol.ToString(), yeniRol.ToString()));
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             OturumuEsitle(hedef);
@@ -277,7 +419,11 @@ public sealed class KimlikService : IKimlikService
                 await SonAdminKorumasiAsync(cancellationToken);
             }
 
+            var eski = AktiflikMetni(hedef.Aktif);
             hedef.AktiflikAyarla(aktif);
+            _denetim.Kaydet(new DenetimOlayi(
+                DenetimIslemi.AktiflikDegisti, DenetimVarlikTurleri.Kullanici, $"{hedef.KullaniciAdi} hesabı {eski} → {AktiflikMetni(aktif)}",
+                hedef.KullaniciId, hedef.KullaniciAdi, eski, AktiflikMetni(aktif)));
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             OturumuEsitle(hedef);
@@ -289,6 +435,19 @@ public sealed class KimlikService : IKimlikService
         catch (DomainException ex) when (_logger.IhlaliLogla(ex, nameof(AktiflikDegistirAsync)))
         {
             throw;
+        }
+    }
+
+    private async Task<bool> KurulumYapilmisMiAsync()
+    {
+        try
+        {
+            return await _kullaniciRepository.HerhangiBiriVarMiAsync(CancellationToken.None);
+        }
+        catch (Exception kontrolHatasi)
+        {
+            _logger.LogWarning(kontrolHatasi, "İlk kurulum hatası sonrası kullanıcı denetimi yapılamadı.");
+            return false;
         }
     }
 
@@ -332,6 +491,8 @@ public sealed class KimlikService : IKimlikService
             _oturum.OturumuKapat(anlik.Nesil);
         }
     }
+
+    private static string AktiflikMetni(bool aktif) => aktif ? "Aktif" : "Pasif";
 
     private static void RolDogrula(KullaniciRolu rol)
     {

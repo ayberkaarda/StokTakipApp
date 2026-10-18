@@ -1,12 +1,17 @@
+using StokTakip.Application.Denetim;
 using StokTakip.Application.DisaAktarim;
 using StokTakip.Application.Dtos;
 using StokTakip.Application.Raporlama;
 using StokTakip.Application.Services;
+using StokTakip.Domain.Entities;
+using StokTakip.Domain.Exceptions;
 
 namespace StokTakip.Application.Kimlik;
 
 public sealed class YetkiDenetimliStokService(IStokService ic, IYetkiDenetcisi yetki) : IStokService
 {
+    public const string EsikYetkisiMesaji = "Düşük stok eşiğini yalnızca yönetici değiştirebilir.";
+
     public async Task<IReadOnlyList<UrunDto>> UrunleriListeleAsync(CancellationToken cancellationToken = default)
     {
         await yetki.GerektirAsync(Yetki.UrunGoruntule, cancellationToken);
@@ -21,13 +26,35 @@ public sealed class YetkiDenetimliStokService(IStokService ic, IYetkiDenetcisi y
 
     public async Task<UrunDto> UrunEkleAsync(UrunEkleIstegi istek, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(istek);
         await yetki.GerektirAsync(Yetki.UrunEkleGuncelle, cancellationToken);
+        if (istek.DusukStokEsigi != Urun.VarsayilanDusukStokEsigi && !await yetki.YetkiliMiAsync(Yetki.EsikDuzenle, cancellationToken))
+        {
+            istek = istek with { DusukStokEsigi = Urun.VarsayilanDusukStokEsigi };
+        }
+
         return await ic.UrunEkleAsync(istek, cancellationToken);
     }
 
+    /// <remarks>
+    /// Eşik yetkisi olmayan kullanıcı eşiği mevcut değeriyle gönderebilir; eşik o zaman hiç yazılmaz
+    /// (arada yönetici değiştirdiyse onun değeri korunur). Farklı bir değer <see cref="YetkisizIslemException"/> verir.
+    /// </remarks>
     public async Task<UrunDto> UrunGuncelleAsync(UrunGuncelleIstegi istek, CancellationToken cancellationToken = default, byte[]? beklenenRowVersion = null)
     {
+        ArgumentNullException.ThrowIfNull(istek);
         await yetki.GerektirAsync(Yetki.UrunEkleGuncelle, cancellationToken);
+        if (istek.DusukStokEsigi is { } esik && !await yetki.YetkiliMiAsync(Yetki.EsikDuzenle, cancellationToken))
+        {
+            var mevcut = await ic.UrunGetirAsync(istek.UrunId, cancellationToken);
+            if (mevcut is not null && mevcut.DusukStokEsigi != esik)
+            {
+                throw new YetkisizIslemException(EsikYetkisiMesaji);
+            }
+
+            istek = istek with { DusukStokEsigi = null };
+        }
+
         return await ic.UrunGuncelleAsync(istek, cancellationToken, beklenenRowVersion);
     }
 
@@ -122,6 +149,24 @@ public sealed class YetkiDenetimliRaporService(IRaporService ic, IYetkiDenetcisi
     {
         await yetki.GerektirAsync(Yetki.GecmisVeRaporGoruntule, cancellationToken);
         return await ic.AylikOzetAsync(baslangic, bitis, cancellationToken);
+    }
+}
+
+public sealed class YetkiDenetimliDenetimService(IDenetimService ic, IYetkiDenetcisi yetki) : IDenetimService
+{
+    public Task YetkiKontrolEtAsync(CancellationToken cancellationToken = default)
+        => yetki.GerektirAsync(Yetki.DenetimGoruntule, cancellationToken);
+
+    public async Task<SayfaliSonucDto<DenetimKaydiDto>> DenetimKayitlariniGetirAsync(DenetimSorgusu sorgu, CancellationToken cancellationToken = default)
+    {
+        await yetki.GerektirAsync(Yetki.DenetimGoruntule, cancellationToken);
+        return await ic.DenetimKayitlariniGetirAsync(sorgu, cancellationToken);
+    }
+
+    public async Task DenetimKayitlariniCsvAktarAsync(DenetimSorgusu sorgu, Stream hedef, CancellationToken cancellationToken = default)
+    {
+        await yetki.GerektirAsync(Yetki.DenetimGoruntule, cancellationToken);
+        await ic.DenetimKayitlariniCsvAktarAsync(sorgu, hedef, cancellationToken);
     }
 }
 

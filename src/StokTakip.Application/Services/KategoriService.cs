@@ -1,7 +1,9 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using StokTakip.Application.Denetim;
 using StokTakip.Application.Dtos;
 using StokTakip.Application.Mapping;
+using StokTakip.Domain;
 using StokTakip.Domain.Entities;
 using StokTakip.Domain.Exceptions;
 using StokTakip.Domain.Repositories;
@@ -15,6 +17,7 @@ public sealed class KategoriService : IKategoriService
     private readonly IKategoriRepository _kategoriRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<KategoriService> _logger;
+    private readonly IDenetimKaydedici _denetim;
 
     public KategoriService(IKategoriRepository kategoriRepository, IUnitOfWork unitOfWork)
         : this(kategoriRepository, unitOfWork, NullLogger<KategoriService>.Instance)
@@ -22,7 +25,14 @@ public sealed class KategoriService : IKategoriService
     }
 
     public KategoriService(IKategoriRepository kategoriRepository, IUnitOfWork unitOfWork, ILogger<KategoriService> logger)
+        : this(kategoriRepository, unitOfWork, logger, NullDenetimKaydedici.Instance)
     {
+    }
+
+    public KategoriService(
+        IKategoriRepository kategoriRepository, IUnitOfWork unitOfWork, ILogger<KategoriService> logger, IDenetimKaydedici denetim)
+    {
+        _denetim = denetim ?? throw new ArgumentNullException(nameof(denetim));
         _kategoriRepository = kategoriRepository ?? throw new ArgumentNullException(nameof(kategoriRepository));
         _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -42,8 +52,18 @@ public sealed class KategoriService : IKategoriService
             await AdBenzersizOlmaliAsync(kirpilmis, null, cancellationToken);
 
             var kategori = new Kategori(kirpilmis);
-            await _kategoriRepository.AddAsync(kategori, cancellationToken);
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await using (var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken: cancellationToken))
+            {
+                await _kategoriRepository.AddAsync(kategori, cancellationToken);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+                await _denetim.KaydetVeYazAsync(
+                    new DenetimOlayi(
+                        DenetimIslemi.KategoriEklendi, DenetimVarlikTurleri.Kategori, $"{kategori.Ad} kategorisi eklendi",
+                        kategori.KategoriId, kategori.Ad, YeniDeger: kategori.Ad),
+                    cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+            }
+
             _logger.LogInformation("Kategori eklendi. KategoriId={KategoriId}", kategori.KategoriId);
             return kategori.ToDto();
         }
@@ -61,7 +81,11 @@ public sealed class KategoriService : IKategoriService
             var kategori = await KategoriyiBulAsync(kategoriId, cancellationToken);
             await AdBenzersizOlmaliAsync(kirpilmis, kategoriId, cancellationToken);
 
+            var eskiAd = kategori.Ad;
             kategori.YenidenAdlandir(kirpilmis);
+            _denetim.Kaydet(new DenetimOlayi(
+                DenetimIslemi.KategoriAdiDegisti, DenetimVarlikTurleri.Kategori, $"Kategori adı '{eskiAd}' → '{kategori.Ad}'",
+                kategori.KategoriId, kategori.Ad, eskiAd, kategori.Ad));
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             _logger.LogInformation("Kategori yeniden adlandırıldı. KategoriId={KategoriId}", kategoriId);
             return kategori.ToDto();
@@ -78,6 +102,9 @@ public sealed class KategoriService : IKategoriService
         {
             var kategori = await KategoriyiBulAsync(kategoriId, cancellationToken);
             _kategoriRepository.Remove(kategori);
+            _denetim.Kaydet(new DenetimOlayi(
+                DenetimIslemi.KategoriSilindi, DenetimVarlikTurleri.Kategori, $"{kategori.Ad} kategorisi silindi; ürünleri kategorisiz kaldı",
+                kategori.KategoriId, kategori.Ad, EskiDeger: kategori.Ad));
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             _logger.LogInformation("Kategori silindi. KategoriId={KategoriId}", kategoriId);
         }

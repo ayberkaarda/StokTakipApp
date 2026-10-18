@@ -22,6 +22,75 @@ namespace StokTakip.Data.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("StokTakip.Domain.Entities.DenetimKaydi", b =>
+                {
+                    b.Property<long>("DenetimId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("DenetimID");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("DenetimId"));
+
+                    b.Property<string>("EskiDeger")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<int?>("Fark")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Islem")
+                        .HasColumnType("int");
+
+                    b.Property<string>("KullaniciAdi")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("KullaniciId")
+                        .HasColumnType("int")
+                        .HasColumnName("KullaniciID");
+
+                    b.Property<string>("Ozet")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<string>("VarlikAdi")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("VarlikId")
+                        .HasColumnType("int")
+                        .HasColumnName("VarlikID");
+
+                    b.Property<string>("VarlikTuru")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("YeniDeger")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<DateTime>("Zaman")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.HasKey("DenetimId");
+
+                    b.HasIndex("Zaman")
+                        .IsDescending();
+
+                    b.HasIndex("Islem", "Zaman")
+                        .IsDescending(false, true);
+
+                    b.HasIndex("KullaniciId", "Zaman")
+                        .IsDescending(false, true);
+
+                    b.ToTable("DenetimKayitlari", (string)null);
+                });
+
             modelBuilder.Entity("StokTakip.Domain.Entities.Kategori", b =>
                 {
                     b.Property<int>("KategoriId")

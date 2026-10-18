@@ -1,7 +1,9 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using StokTakip.Application.Denetim;
 using StokTakip.Application.Dtos;
 using StokTakip.Application.Mapping;
+using StokTakip.Domain;
 using StokTakip.Domain.Entities;
 using StokTakip.Domain.Exceptions;
 using StokTakip.Domain.Repositories;
@@ -16,6 +18,7 @@ public sealed class StokService : IStokService
     private readonly IKategoriRepository? _kategoriRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<StokService> _logger;
+    private readonly IDenetimKaydedici _denetim;
 
     /// <summary>Kategori deposu olmadan; kategori atayan istekler <see cref="InvalidOperationException"/> verir.</summary>
     public StokService(IUrunRepository urunRepository, IUnitOfWork unitOfWork)
@@ -39,11 +42,22 @@ public sealed class StokService : IStokService
         IKategoriRepository? kategoriRepository,
         IUnitOfWork unitOfWork,
         ILogger<StokService> logger)
+        : this(urunRepository, kategoriRepository, unitOfWork, logger, NullDenetimKaydedici.Instance)
+    {
+    }
+
+    public StokService(
+        IUrunRepository urunRepository,
+        IKategoriRepository? kategoriRepository,
+        IUnitOfWork unitOfWork,
+        ILogger<StokService> logger,
+        IDenetimKaydedici denetim)
     {
         _urunRepository = urunRepository ?? throw new ArgumentNullException(nameof(urunRepository));
         _kategoriRepository = kategoriRepository;
         _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _denetim = denetim ?? throw new ArgumentNullException(nameof(denetim));
     }
 
     public async Task<IReadOnlyList<UrunDto>> UrunleriListeleAsync(CancellationToken cancellationToken = default)
@@ -76,8 +90,20 @@ public sealed class StokService : IStokService
                 urun.KategoriyeAta(await KategoriyiBulAsync(kategoriId, cancellationToken));
             }
 
-            await _urunRepository.AddAsync(urun, cancellationToken);
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            // Kayıt yeni ürünün kimliğini taşır; ürünle aynı transaction'da yazılır.
+            await using (var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken: cancellationToken))
+            {
+                await _urunRepository.AddAsync(urun, cancellationToken);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+                await _denetim.KaydetVeYazAsync(
+                    new DenetimOlayi(
+                        DenetimIslemi.UrunEklendi, DenetimVarlikTurleri.Urun,
+                        $"{urun.UrunAdi} ürünü eklendi: stok {DenetimMetni.Sayi(urun.Stok)}, eşik {DenetimMetni.Sayi(urun.DusukStokEsigi)}, kategori {DenetimMetni.Kategori(urun.Kategori?.Ad)}",
+                        urun.UrunId, urun.UrunAdi, YeniDeger: UrunOzeti(urun), Fark: urun.Stok),
+                    cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+            }
+
             _logger.LogInformation("Ürün eklendi. UrunId={UrunId}", urun.UrunId);
             return urun.ToDto();
         }
@@ -111,6 +137,12 @@ public sealed class StokService : IStokService
                 _urunRepository.SetBeklenenRowVersion(urun, beklenenRowVersion);
             }
 
+            var eskiAd = urun.UrunAdi;
+            var eskiStok = urun.Stok;
+            var eskiEsik = urun.DusukStokEsigi;
+            var eskiKategori = urun.Kategori?.Ad;
+            var eskiKategoriId = urun.KategoriId;
+
             urun.AdiDegistir(istek.UrunAdi);
             urun.StokAyarla(istek.Stok);
             if (istek.DusukStokEsigi is { } yeniEsik)
@@ -121,6 +153,44 @@ public sealed class StokService : IStokService
             if (istek.KategoriGuncellensin)
             {
                 urun.KategoriyeAta(kategori);
+            }
+
+            var eskiler = new List<string>();
+            var yeniler = new List<string>();
+            var degisimler = new List<string>();
+            if (eskiAd != urun.UrunAdi)
+            {
+                eskiler.Add($"Ad={eskiAd}");
+                yeniler.Add($"Ad={urun.UrunAdi}");
+                degisimler.Add($"ad '{eskiAd}' → '{urun.UrunAdi}'");
+            }
+
+            if (eskiKategoriId != urun.KategoriId)
+            {
+                eskiler.Add($"Kategori={DenetimMetni.Kategori(eskiKategori)}");
+                yeniler.Add($"Kategori={DenetimMetni.Kategori(urun.Kategori?.Ad)}");
+                degisimler.Add($"kategori {DenetimMetni.Kategori(eskiKategori)} → {DenetimMetni.Kategori(urun.Kategori?.Ad)}");
+            }
+
+            if (degisimler.Count > 0)
+            {
+                _denetim.Kaydet(new DenetimOlayi(
+                    DenetimIslemi.UrunGuncellendi, DenetimVarlikTurleri.Urun,
+                    $"{urun.UrunAdi} ürünü güncellendi: {string.Join(", ", degisimler)}",
+                    urun.UrunId, urun.UrunAdi, string.Join("; ", eskiler), string.Join("; ", yeniler)));
+            }
+
+            if (eskiStok != urun.Stok)
+            {
+                _denetim.Kaydet(StokOlayi(urun, eskiStok));
+            }
+
+            if (eskiEsik != urun.DusukStokEsigi)
+            {
+                _denetim.Kaydet(new DenetimOlayi(
+                    DenetimIslemi.EsikDegisti, DenetimVarlikTurleri.Urun,
+                    $"{urun.UrunAdi} düşük stok eşiği {DenetimMetni.Sayi(eskiEsik)} → {DenetimMetni.Sayi(urun.DusukStokEsigi)}",
+                    urun.UrunId, urun.UrunAdi, DenetimMetni.Sayi(eskiEsik), DenetimMetni.Sayi(urun.DusukStokEsigi)));
             }
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -145,7 +215,9 @@ public sealed class StokService : IStokService
                 _urunRepository.SetBeklenenRowVersion(urun, beklenenRowVersion);
             }
 
+            var eskiStok = urun.Stok;
             urun.StokAyarla(yeniStok);
+            _denetim.Kaydet(StokOlayi(urun, eskiStok));
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             _logger.LogInformation("Stok güncellendi. UrunId={UrunId}, YeniStok={YeniStok}", urunId, yeniStok);
             return urun.ToDto();
@@ -173,6 +245,10 @@ public sealed class StokService : IStokService
             }
 
             _urunRepository.Remove(urun);
+            _denetim.Kaydet(new DenetimOlayi(
+                DenetimIslemi.UrunSilindi, DenetimVarlikTurleri.Urun,
+                $"{urun.UrunAdi} ürünü silindi (stok {DenetimMetni.Sayi(urun.Stok)})",
+                urun.UrunId, urun.UrunAdi, EskiDeger: UrunOzeti(urun), Fark: urun.Stok == 0 ? null : -urun.Stok));
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             _logger.LogInformation("Ürün silindi. UrunId={UrunId}", urunId);
         }
@@ -181,6 +257,14 @@ public sealed class StokService : IStokService
             throw;
         }
     }
+
+    private static DenetimOlayi StokOlayi(Urun urun, int eskiStok) =>
+        new(DenetimIslemi.StokGuncellendi, DenetimVarlikTurleri.Urun,
+            $"{urun.UrunAdi} stoğu {DenetimMetni.Degisim(eskiStok, urun.Stok)}",
+            urun.UrunId, urun.UrunAdi, DenetimMetni.Sayi(eskiStok), DenetimMetni.Sayi(urun.Stok), urun.Stok - eskiStok);
+
+    private static string UrunOzeti(Urun urun) =>
+        $"Stok={DenetimMetni.Sayi(urun.Stok)}; Eşik={DenetimMetni.Sayi(urun.DusukStokEsigi)}; Kategori={DenetimMetni.Kategori(urun.Kategori?.Ad)}";
 
     private async Task<Urun> UrunuBulAsync(int urunId, CancellationToken cancellationToken)
     {
