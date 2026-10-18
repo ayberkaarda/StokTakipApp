@@ -14,7 +14,9 @@ public static class DependencyInjection
 
         services.AddDbContext<StokTakipDbContext>(options => options.UseSqlServer(connectionString));
         services.AddScoped<IUrunRepository, UrunRepository>();
+        services.AddScoped<IKategoriRepository, KategoriRepository>();
         services.AddScoped<ISiparisRepository, SiparisRepository>();
+        services.AddScoped<IRaporRepository, RaporRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         return services;
     }

@@ -10,12 +10,15 @@ public interface IStokService
 
     Task<UrunDto?> UrunGetirAsync(int urunId, CancellationToken cancellationToken = default);
 
-    /// <exception cref="GecersizGirdiException">Ürün adı boşsa veya stok negatifse.</exception>
+    /// <exception cref="GecersizGirdiException">Ürün adı boşsa, stok veya eşik negatifse ya da kategori bulunamazsa.</exception>
     Task<UrunDto> UrunEkleAsync(UrunEkleIstegi istek, CancellationToken cancellationToken = default);
 
-    /// <summary>Ürün adını ve stoğunu birlikte günceller.</summary>
+    /// <summary>
+    /// Ürün adını ve stoğunu birlikte günceller; istekte verildiyse düşük stok eşiğini ve kategoriyi de
+    /// (bkz. <see cref="UrunGuncelleIstegi"/>). Hiçbir alan, tümü doğrulanmadan değiştirilmez.
+    /// </summary>
     /// <exception cref="KayitBulunamadiException"/>
-    /// <exception cref="GecersizGirdiException">Ürün adı boşsa veya stok negatifse.</exception>
+    /// <exception cref="GecersizGirdiException">Ürün adı boşsa, stok veya eşik negatifse ya da kategori bulunamazsa.</exception>
     Task<UrunDto> UrunGuncelleAsync(UrunGuncelleIstegi istek, CancellationToken cancellationToken = default, byte[]? beklenenRowVersion = null);
 
     /// <summary>Yalnızca stoğu verilen değere ayarlar (ana formdaki "Stok Güncelle").</summary>
