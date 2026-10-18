@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using StokTakip.Application.Dtos;
+using StokTakip.Application.Kimlik;
 using StokTakip.Application.Services;
 using StokTakip.Domain;
 using StokTakip.Domain.Entities;
@@ -24,6 +25,8 @@ namespace StokTakip.Presenters
     {
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly IStokDegisiklikBildirimi _bildirim;
+        private readonly IOturumBaglami _oturum;
+        private readonly IOturumIzleyici _izleyici;
         private readonly ILogger<AnaFormPresenter> _logger;
         private const string EszamanlilikMesaji =
             "Kayıt başka biri tarafından değiştirildi, liste yenilendi. Lütfen güncel değerleri kontrol edip tekrar deneyin.";
@@ -37,16 +40,27 @@ namespace StokTakip.Presenters
         private bool _mesgul;
         private bool _yenilemeBekliyor;
         private bool _kapandi;
+        private bool _cikisYapiliyor;
+        private OturumKullanicisi _kullanici;
+        private ArayuzYetkileri _yetkiler = ArayuzYetkileri.Yok;
 
-        public AnaFormPresenter(IServiceScopeFactory scopeFactory, IStokDegisiklikBildirimi bildirim)
-            : this(scopeFactory, bildirim, NullLogger<AnaFormPresenter>.Instance)
+        public AnaFormPresenter(
+            IServiceScopeFactory scopeFactory, IStokDegisiklikBildirimi bildirim, IOturumBaglami oturum, IOturumIzleyici izleyici)
+            : this(scopeFactory, bildirim, oturum, izleyici, NullLogger<AnaFormPresenter>.Instance)
         {
         }
 
-        public AnaFormPresenter(IServiceScopeFactory scopeFactory, IStokDegisiklikBildirimi bildirim, ILogger<AnaFormPresenter> logger)
+        public AnaFormPresenter(
+            IServiceScopeFactory scopeFactory,
+            IStokDegisiklikBildirimi bildirim,
+            IOturumBaglami oturum,
+            IOturumIzleyici izleyici,
+            ILogger<AnaFormPresenter> logger)
         {
             _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
             _bildirim = bildirim ?? throw new ArgumentNullException(nameof(bildirim));
+            _oturum = oturum ?? throw new ArgumentNullException(nameof(oturum));
+            _izleyici = izleyici ?? throw new ArgumentNullException(nameof(izleyici));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -58,7 +72,30 @@ namespace StokTakip.Presenters
             }
 
             _view = view ?? throw new ArgumentNullException(nameof(view));
-            _view.Yuklendi += async (s, e) => await CalistirAsync(UrunleriYukleAsync);
+            _kullanici = _oturum.MevcutKullanici;
+            _view.OturumBilgisiGoster(KimlikMetinleri.OturumBilgisi(_kullanici));
+            _view.YetkileriUygula(_yetkiler);
+            _view.Yuklendi += async (s, e) => await CalistirAsync(async () =>
+            {
+                await YetkileriYukleAsync();
+                await UrunleriYukleAsync();
+            });
+            _view.CikisIstendi += async (s, e) => await CalistirAsync(CikisYapAsync);
+            _view.ParolaDegistirIstendi += (s, e) => _view.ParolaDegistirAc();
+            _view.KullanicilarIstendi += (s, e) =>
+            {
+                if (_yetkiler.KullaniciYonetimi)
+                {
+                    _view.KullanicilariAc();
+                }
+            };
+            _view.DenetimKayitlariIstendi += (s, e) =>
+            {
+                if (_yetkiler.DenetimGoruntule)
+                {
+                    _view.DenetimKayitlariniAc();
+                }
+            };
             _view.UrunEkleIstendi += async (s, e) => await CalistirAsync(UrunEkleAsync);
             _view.StokGuncelleIstendi += async (s, e) => await CalistirAsync(StokGuncelleAsync);
             _view.UrunSilIstendi += async (s, e) => await CalistirAsync(UrunSilAsync);
@@ -68,7 +105,13 @@ namespace StokTakip.Presenters
             _view.SiparisVerIstendi += async (s, e) => await CalistirAsync(SiparisVerAsync);
             _view.SiparisGecmisiIstendi += (s, e) => _view.SiparisGecmisiniAc();
             _view.RaporlarIstendi += (s, e) => _view.RaporlariAc();
-            _view.KategorilerIstendi += (s, e) => _view.KategorileriYonet();
+            _view.KategorilerIstendi += (s, e) =>
+            {
+                if (_yetkiler.KategoriYonetimi)
+                {
+                    _view.KategorileriYonet();
+                }
+            };
             _view.FiltreDegisti += (s, e) => ListeyiGoster();
             _view.DusukStokFiltresiIstendi += (s, e) => DusukStoklariGoster();
             _view.UrunSecildi += (s, urun) => UrunSec(urun);
@@ -76,8 +119,80 @@ namespace StokTakip.Presenters
             {
                 _kapandi = true;
                 _bildirim.UrunlerDegisti -= UrunlerDegisti;
+                _izleyici.Degisti -= OturumDegisti;
             };
             _bildirim.UrunlerDegisti += UrunlerDegisti;
+            _izleyici.Degisti += OturumDegisti;
+        }
+
+        // Servis oturumu kapattıysa (hesap pasif, rol düşürülmüş) giriş ekranına dönülür; rol düştüyse yönetici ekranları kapanır.
+        private void OturumDegisti(object sender, EventArgs e)
+        {
+            if (_kapandi || _cikisYapiliyor)
+            {
+                return;
+            }
+
+            OturumKullanicisi guncel = _oturum.MevcutKullanici;
+            if (guncel == null || _kullanici == null || guncel.KullaniciId != _kullanici.KullaniciId)
+            {
+                _kapandi = true;
+                _view.GirisEkraninaDon(KimlikMetinleri.OturumSonlandi);
+                return;
+            }
+
+            if (guncel.Rol == _kullanici.Rol)
+            {
+                return;
+            }
+
+            bool dustu = guncel.Rol < _kullanici.Rol;
+            _kullanici = guncel;
+            _view.OturumBilgisiGoster(KimlikMetinleri.OturumBilgisi(guncel));
+            if (dustu)
+            {
+                _yetkiler = ArayuzYetkileri.Yok;
+                _view.YoneticiEkranlariniKapat();
+                _view.YetkileriUygula(_yetkiler);
+                _view.BilgiGoster($"Rolünüz {KimlikMetinleri.RolAdi(guncel.Rol)} olarak değişti; yönetici işlemleri kapatıldı.");
+            }
+        }
+
+        private async Task YetkileriYukleAsync()
+        {
+            _kullanici = _oturum.MevcutKullanici;
+            _view.OturumBilgisiGoster(KimlikMetinleri.OturumBilgisi(_kullanici));
+            ArayuzYetkileri yetkiler;
+            await using (AsyncServiceScope scope = _scopeFactory.CreateAsyncScope())
+            {
+                IYetkiDenetcisi yetki = scope.ServiceProvider.GetRequiredService<IYetkiDenetcisi>();
+                yetkiler = new ArayuzYetkileri(
+                    await yetki.YetkiliMiAsync(Yetki.UrunSil),
+                    await yetki.YetkiliMiAsync(Yetki.KategoriYonetimi),
+                    await yetki.YetkiliMiAsync(Yetki.EsikDuzenle),
+                    await yetki.YetkiliMiAsync(Yetki.KullaniciYonetimi),
+                    await yetki.YetkiliMiAsync(Yetki.DenetimGoruntule));
+            }
+
+            _yetkiler = yetkiler;
+            _view.YetkileriUygula(yetkiler);
+        }
+
+        // Oturum servis tarafından her durumda kapatılır; çıkış kaydı yazılamasa da giriş ekranına dönülür.
+        private async Task CikisYapAsync()
+        {
+            _cikisYapiliyor = true;
+            try
+            {
+                await _scopeFactory.CalistirAsync<IKimlikService>(s => s.CikisYapAsync());
+            }
+            catch (Exception ex)
+            {
+                HataMesaji.Logla(_logger, ex);
+            }
+
+            _kapandi = true;
+            _view.GirisEkraninaDon(KimlikMetinleri.CikisYapildi);
         }
 
         private async void UrunlerDegisti(object sender, EventArgs e)
@@ -101,7 +216,7 @@ namespace StokTakip.Presenters
             try
             {
                 await HataGostererekCalistirAsync(islem);
-                while (_yenilemeBekliyor)
+                while (_yenilemeBekliyor && !_kapandi)
                 {
                     _yenilemeBekliyor = false;
                     await HataGostererekCalistirAsync(UrunleriYukleAsync);
@@ -123,7 +238,10 @@ namespace StokTakip.Presenters
             catch (Exception ex)
             {
                 HataMesaji.Logla(_logger, ex);
-                HataMesaji.Goster(_view, ex);
+                if (!_kapandi)
+                {
+                    HataMesaji.Goster(_view, ex);
+                }
             }
         }
 
@@ -234,7 +352,8 @@ namespace StokTakip.Presenters
                 return;
             }
 
-            if (!EsikOku(true, out int esik))
+            int esik = Urun.VarsayilanDusukStokEsigi;
+            if (_yetkiler.EsikDuzenle && !EsikOku(true, out esik))
             {
                 return;
             }
@@ -322,7 +441,9 @@ namespace StokTakip.Presenters
                 return;
             }
 
-            if (!EsikOku(false, out int esik))
+            // Eşik yetkisi yoksa mevcut eşik aynen gönderilir (servis farklı değeri reddeder).
+            int esik = urun.DusukStokEsigi;
+            if (_yetkiler.EsikDuzenle && !EsikOku(false, out esik))
             {
                 return;
             }

@@ -18,29 +18,51 @@ namespace StokTakip
         private readonly Func<SiparisGecmisiForm> _siparisGecmisiFormu;
         private readonly Func<RaporlarForm> _raporlarFormu;
         private readonly Func<KategorilerForm> _kategorilerFormu;
+        private readonly Func<KullanicilarForm> _kullanicilarFormu;
+        private readonly Func<DenetimKayitlariForm> _denetimKayitlariFormu;
+        private readonly Func<ParolaDegistirForm> _parolaDegistirFormu;
         private readonly BindingList<UrunDto> _urunler = new BindingList<UrunDto>();
         private readonly BindingList<UrunDto> _listelenen = new BindingList<UrunDto>();
+        private readonly List<Form> _yanFormlar = new List<Form>();
         private readonly YuklemeGostergesi _yuklemeGostergesi;
         private RaporlarForm _acikRaporlar;
+        private DenetimKayitlariForm _acikDenetim;
+        private Form _acikModal;
         private UrunDto _duzenlenen;
+        private ArayuzYetkileri _yetkiler = ArayuzYetkileri.Yok;
         private bool _listeYenileniyor;
         private bool _filtreOlaylariKapali;
         private bool _mesgul;
         private Control _mesgulOncesiOdak;
+        private Action<Form> _pencereGoster;
+        private Func<Form, DialogResult> _modalGoster;
 
         public Form1(
             IAnaFormPresenter presenter,
             Func<SiparisGecmisiForm> siparisGecmisiFormu,
             Func<RaporlarForm> raporlarFormu,
-            Func<KategorilerForm> kategorilerFormu)
+            Func<KategorilerForm> kategorilerFormu,
+            Func<KullanicilarForm> kullanicilarFormu,
+            Func<DenetimKayitlariForm> denetimKayitlariFormu,
+            Func<ParolaDegistirForm> parolaDegistirFormu)
         {
             ArgumentNullException.ThrowIfNull(presenter);
             _siparisGecmisiFormu = siparisGecmisiFormu ?? throw new ArgumentNullException(nameof(siparisGecmisiFormu));
             _raporlarFormu = raporlarFormu ?? throw new ArgumentNullException(nameof(raporlarFormu));
             _kategorilerFormu = kategorilerFormu ?? throw new ArgumentNullException(nameof(kategorilerFormu));
+            _kullanicilarFormu = kullanicilarFormu ?? throw new ArgumentNullException(nameof(kullanicilarFormu));
+            _denetimKayitlariFormu = denetimKayitlariFormu ?? throw new ArgumentNullException(nameof(denetimKayitlariFormu));
+            _parolaDegistirFormu = parolaDegistirFormu ?? throw new ArgumentNullException(nameof(parolaDegistirFormu));
+            _pencereGoster = form => form.Show();
+            _modalGoster = form => form.ShowDialog(this);
 
             InitializeComponent();
             Theme.Apply(this);
+            lnkParolaDegistir.Font = Theme.SmallFont;
+            lnkParolaDegistir.LinkColor = Theme.Palette.Primary;
+            lnkParolaDegistir.ActiveLinkColor = Theme.Palette.PrimaryPressed;
+            lnkParolaDegistir.VisitedLinkColor = Theme.Palette.Primary;
+            cmsYonetim.Font = Theme.BodyFont;
             Theme.EnableStockHighlight(dgvUrunler, colStok.Name, satir => (satir as UrunDto)?.StokDurumu);
             lblBosListe.Font = Theme.SectionFont;
             lblBosListe.ForeColor = Theme.Palette.TextMuted;
@@ -82,6 +104,13 @@ namespace StokTakip
         public event EventHandler DusukStokFiltresiIstendi;
         public event EventHandler<UrunDto> UrunSecildi;
         public event EventHandler Kapandi;
+        public event EventHandler CikisIstendi;
+        public event EventHandler ParolaDegistirIstendi;
+        public event EventHandler KullanicilarIstendi;
+        public event EventHandler DenetimKayitlariIstendi;
+
+        /// <summary>Form çıkış ya da oturum sonu nedeniyle kapandıysa giriş ekranında gösterilecek bilgi; kullanıcı pencereyi kapattıysa null.</summary>
+        public string GirisBilgisi { get; private set; }
 
         string IAnaFormView.UrunAdi
         {
@@ -183,7 +212,7 @@ namespace StokTakip
                 btnUrunEkle.Visible = !duzenleme;
                 btnStokGuncelle.Visible = !duzenleme;
                 btnDuzenle.Visible = !duzenleme;
-                btnUrunSil.Visible = !duzenleme;
+                btnUrunSil.Visible = !duzenleme && _yetkiler.UrunSil;
                 btnKaydet.Visible = duzenleme;
                 btnVazgec.Visible = duzenleme;
                 pnlUrunIslemleri.Invalidate();
@@ -435,7 +464,7 @@ namespace StokTakip
         {
             if (!Kapali)
             {
-                _siparisGecmisiFormu().Show();
+                YanFormuGoster(_siparisGecmisiFormu());
             }
         }
 
@@ -450,28 +479,186 @@ namespace StokTakip
             {
                 _acikRaporlar = _raporlarFormu();
                 _acikRaporlar.FormClosed += (s, e) => _acikRaporlar = null;
-                _acikRaporlar.Show();
+                YanFormuGoster(_acikRaporlar);
                 return;
             }
 
-            if (_acikRaporlar.WindowState == FormWindowState.Minimized)
-            {
-                _acikRaporlar.WindowState = FormWindowState.Normal;
-            }
-
-            _acikRaporlar.Activate();
+            OneGetir(_acikRaporlar);
         }
 
-        void IAnaFormView.KategorileriYonet()
+        void IAnaFormView.DenetimKayitlariniAc()
         {
             if (Kapali)
             {
                 return;
             }
 
-            using (KategorilerForm form = _kategorilerFormu())
+            if (_acikDenetim == null || _acikDenetim.IsDisposed)
             {
-                form.ShowDialog(this);
+                _acikDenetim = _denetimKayitlariFormu();
+                _acikDenetim.FormClosed += (s, e) => _acikDenetim = null;
+                YanFormuGoster(_acikDenetim);
+                return;
+            }
+
+            OneGetir(_acikDenetim);
+        }
+
+        private static void OneGetir(Form form)
+        {
+            if (form.WindowState == FormWindowState.Minimized)
+            {
+                form.WindowState = FormWindowState.Normal;
+            }
+
+            form.Activate();
+        }
+
+        // Yan pencereler bağımsızdır (sahiplenilmez); çıkışta ve oturum sonunda buradan kapatılır.
+        private void YanFormuGoster(Form form)
+        {
+            _yanFormlar.Add(form);
+            form.FormClosed += (s, e) => _yanFormlar.Remove(form);
+            _pencereGoster(form);
+        }
+
+        void IAnaFormView.KategorileriYonet()
+        {
+            if (!Kapali)
+            {
+                ModalGoster(_kategorilerFormu());
+            }
+        }
+
+        void IAnaFormView.KullanicilariAc()
+        {
+            if (!Kapali)
+            {
+                ModalGoster(_kullanicilarFormu());
+            }
+        }
+
+        void IAnaFormView.ParolaDegistirAc()
+        {
+            if (!Kapali)
+            {
+                ModalGoster(_parolaDegistirFormu());
+            }
+        }
+
+        private void ModalGoster(Form form)
+        {
+            using (form)
+            {
+                _acikModal = form;
+                try
+                {
+                    _modalGoster(form);
+                }
+                finally
+                {
+                    _acikModal = null;
+                }
+            }
+
+            // İletişim açıkken oturum sona erdiyse kapanış, iletişim kapandıktan sonra tamamlanır.
+            if (GirisBilgisi != null)
+            {
+                KapanisiBaslat();
+            }
+        }
+
+        void IAnaFormView.OturumBilgisiGoster(string oturumBilgisi)
+        {
+            if (!IsDisposed)
+            {
+                lblOturum.Text = string.IsNullOrEmpty(oturumBilgisi) ? "—" : oturumBilgisi;
+            }
+        }
+
+        void IAnaFormView.YetkileriUygula(ArayuzYetkileri yetkiler)
+        {
+            if (IsDisposed)
+            {
+                return;
+            }
+
+            _yetkiler = yetkiler ?? ArayuzYetkileri.Yok;
+            btnUrunSil.Visible = _duzenlenen == null && _yetkiler.UrunSil;
+            btnKategoriler.Visible = _yetkiler.KategoriYonetimi;
+            tsmKullanicilar.Visible = _yetkiler.KullaniciYonetimi;
+            tsmDenetimKayitlari.Visible = _yetkiler.DenetimGoruntule;
+            btnYonetim.Visible = _yetkiler.KullaniciYonetimi || _yetkiler.DenetimGoruntule;
+
+            bool esik = _yetkiler.EsikDuzenle;
+            txtEsik.ReadOnly = !esik;
+            txtEsik.TabStop = esik;
+            txtEsik.BackColor = esik ? Theme.Palette.Surface : Theme.Palette.SurfaceMuted;
+            txtEsik.ForeColor = esik ? Theme.Palette.Text : Theme.Palette.TextMuted;
+            string ipucu = esik ? null : "Düşük stok eşiğini yalnızca yönetici değiştirebilir. Yeni ürünler varsayılan eşikle (10) eklenir.";
+            ttIpucu.SetToolTip(txtEsik, ipucu);
+            ttIpucu.SetToolTip(lblEsik, ipucu);
+        }
+
+        void IAnaFormView.YoneticiEkranlariniKapat()
+        {
+            if (!IsDisposed)
+            {
+                YanPencereleriKapat();
+            }
+        }
+
+        void IAnaFormView.GirisEkraninaDon(string bilgi)
+        {
+            if (IsDisposed || GirisBilgisi != null)
+            {
+                return;
+            }
+
+            GirisBilgisi = string.IsNullOrEmpty(bilgi) ? KimlikMetinleri.CikisYapildi : bilgi;
+            YanPencereleriKapat();
+            if (_acikModal == null)
+            {
+                KapanisiBaslat();
+            }
+        }
+
+        private void YanPencereleriKapat()
+        {
+            foreach (Form form in _yanFormlar.ToList())
+            {
+                if (!form.IsDisposed)
+                {
+                    form.Close();
+                }
+            }
+
+            if (_acikModal != null && !_acikModal.IsDisposed)
+            {
+                _acikModal.Close();
+            }
+        }
+
+        private void KapanisiBaslat()
+        {
+            if (IsDisposed)
+            {
+                return;
+            }
+
+            if (IsHandleCreated)
+            {
+                BeginInvoke(new Action(() =>
+                {
+                    if (!IsDisposed)
+                    {
+                        Close();
+                    }
+                }));
+            }
+            else
+            {
+                Close();
             }
         }
 
@@ -512,6 +699,7 @@ namespace StokTakip
 
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
+            YanPencereleriKapat();
             Kapandi?.Invoke(this, EventArgs.Empty);
             base.OnFormClosed(e);
         }
@@ -537,6 +725,17 @@ namespace StokTakip
         private void btnKategoriler_Click(object sender, EventArgs e) => KategorilerIstendi?.Invoke(this, EventArgs.Empty);
 
         private void lblDusukStok_Click(object sender, EventArgs e) => DusukStokFiltresiIstendi?.Invoke(this, EventArgs.Empty);
+
+        private void btnCikis_Click(object sender, EventArgs e) => CikisIstendi?.Invoke(this, EventArgs.Empty);
+
+        private void lnkParolaDegistir_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e) =>
+            ParolaDegistirIstendi?.Invoke(this, EventArgs.Empty);
+
+        private void btnYonetim_Click(object sender, EventArgs e) => cmsYonetim.Show(btnYonetim, new System.Drawing.Point(0, btnYonetim.Height));
+
+        private void tsmKullanicilar_Click(object sender, EventArgs e) => KullanicilarIstendi?.Invoke(this, EventArgs.Empty);
+
+        private void tsmDenetimKayitlari_Click(object sender, EventArgs e) => DenetimKayitlariIstendi?.Invoke(this, EventArgs.Empty);
 
         private void Filtre_SelectedIndexChanged(object sender, EventArgs e)
         {

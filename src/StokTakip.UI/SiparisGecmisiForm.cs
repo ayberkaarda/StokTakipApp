@@ -21,7 +21,7 @@ namespace StokTakip
         private bool _filtreOlaylariKapali;
         private bool _siliniyor;
         private bool _disaAktariliyor;
-        private string _aktarimYolu;
+        private GuvenliDosyaYazimi _aktarim;
         private Func<string, string> _dosyaSec;
 
         public SiparisGecmisiForm(ISiparisGecmisiPresenter presenter)
@@ -55,6 +55,10 @@ namespace StokTakip
                     SayfaBilgisiniYaz();
                 }
             });
+
+            // Yönetici işlemleri, yetki öğrenilene kadar gizli.
+            btnSiparisSil.Visible = false;
+            btnCsvAktar.Visible = false;
 
             _dosyaSec = KaydetmeDiyaloguGoster;
             presenter.Bagla(this);
@@ -147,35 +151,39 @@ namespace StokTakip
                 return null;
             }
 
-            var akis = new FileStream(yol, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
-            _aktarimYolu = yol;
-            return akis;
+            _aktarim = GuvenliDosyaYazimi.Ac(yol);
+            return _aktarim.Akis;
         }
 
         void ISiparisGecmisiView.DisaAktarimHedefiniKapat(Stream hedef, bool tamamlandi)
         {
-            string yol = _aktarimYolu;
-            _aktarimYolu = null;
-            try
+            GuvenliDosyaYazimi aktarim = _aktarim;
+            _aktarim = null;
+            if (aktarim == null || !ReferenceEquals(aktarim.Akis, hedef))
             {
                 hedef?.Dispose();
+                return;
             }
-            finally
+
+            using (aktarim)
             {
-                if (!tamamlandi && yol != null)
+                if (tamamlandi)
                 {
-                    try
-                    {
-                        File.Delete(yol);
-                    }
-                    catch (IOException)
-                    {
-                    }
-                    catch (UnauthorizedAccessException)
-                    {
-                    }
+                    aktarim.Tamamla();
                 }
             }
+        }
+
+        void ISiparisGecmisiView.YetkileriUygula(bool siparisSilebilir, bool csvAktarabilir)
+        {
+            if (Kapali)
+            {
+                return;
+            }
+
+            btnSiparisSil.Visible = siparisSilebilir;
+            btnCsvAktar.Visible = csvAktarabilir;
+            pnlListe.PerformLayout();
         }
 
         void ISiparisGecmisiView.DisaAktarimIlerlemesiGoster(int yazilan, int toplam)
@@ -186,19 +194,8 @@ namespace StokTakip
             }
         }
 
-        private string KaydetmeDiyaloguGoster(string varsayilanDosyaAdi)
-        {
-            using (var diyalog = new SaveFileDialog())
-            {
-                diyalog.Title = "Siparişleri CSV'ye Aktar";
-                diyalog.Filter = "CSV dosyası (*.csv)|*.csv|Tüm dosyalar (*.*)|*.*";
-                diyalog.DefaultExt = "csv";
-                diyalog.AddExtension = true;
-                diyalog.OverwritePrompt = true;
-                diyalog.FileName = varsayilanDosyaAdi;
-                return diyalog.ShowDialog(this) == DialogResult.OK ? diyalog.FileName : null;
-            }
-        }
+        private string KaydetmeDiyaloguGoster(string varsayilanDosyaAdi) =>
+            GuvenliDosyaYazimi.CsvDosyasiSec(this, "Siparişleri CSV'ye Aktar", varsayilanDosyaAdi);
 
         private void btnCsvAktar_Click(object sender, EventArgs e)
         {

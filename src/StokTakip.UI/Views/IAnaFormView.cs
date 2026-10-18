@@ -21,6 +21,10 @@ namespace StokTakip.Views
         event EventHandler DusukStokFiltresiIstendi;
         event EventHandler<UrunDto> UrunSecildi;
         event EventHandler Kapandi;
+        event EventHandler CikisIstendi;
+        event EventHandler ParolaDegistirIstendi;
+        event EventHandler KullanicilarIstendi;
+        event EventHandler DenetimKayitlariIstendi;
 
         string UrunAdi { get; set; }
 
@@ -59,5 +63,23 @@ namespace StokTakip.Views
         void RaporlariAc();
 
         void KategorileriYonet();
+
+        /// <summary>Başlık bandındaki oturum bilgisi, ör. "ayse · Yönetici".</summary>
+        void OturumBilgisiGoster(string oturumBilgisi);
+
+        /// <summary>Yetkisi olmayan işlemler gizlenir ya da salt okunur yapılır.</summary>
+        void YetkileriUygula(ArayuzYetkileri yetkiler);
+
+        void ParolaDegistirAc();
+
+        void KullanicilariAc();
+
+        void DenetimKayitlariniAc();
+
+        /// <summary>Açık kullanıcı ve denetim pencerelerini kapatır (rol düşürüldüğünde).</summary>
+        void YoneticiEkranlariniKapat();
+
+        /// <summary>Açık yan pencereleri kapatır, ana formu kapatır ve giriş ekranına bu bilgiyle dönülmesini ister.</summary>
+        void GirisEkraninaDon(string bilgi);
     }
 }

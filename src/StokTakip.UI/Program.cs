@@ -1,5 +1,7 @@
 ﻿using System;
+using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -8,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using StokTakip.Application;
+using StokTakip.Application.Kimlik;
 using StokTakip.Data;
 using StokTakip.Presenters;
 using StokTakip.Views;
@@ -57,13 +60,30 @@ namespace StokTakip
                     return;
                 }
 
-                WinFormsApplication.Run(serviceProvider.GetRequiredService<Form1>());
+                bool? ilkKurulumGerekli = IlkKurulumDurumunuAl(serviceProvider);
+                if (ilkKurulumGerekli == null)
+                {
+                    return;
+                }
+
+                try
+                {
+                    using (var akis = new UygulamaAkisi(serviceProvider, ilkKurulumGerekli.Value))
+                    {
+                        WinFormsApplication.Run(akis);
+                    }
+                }
+                finally
+                {
+                    serviceProvider.GetRequiredService<IOturumBaglami>().OturumuKapat();
+                }
+
                 Gunlukcu.Information("Uygulama kapatıldı.");
             }
             catch (Exception ex)
             {
                 Gunlukcu.Fatal(Gunluk.Ayrinti(ex), "Uygulama başlatılamadı: {Hata}", Gunluk.HataOzeti(ex));
-                MesajKutusu.Hata(null, HataMesaji.Olustur(ex) + "\n\nAyrıntılar günlük dosyasına kaydedildi.");
+                MesajKutusu.Hata(null, HataMesaji.Olustur(ex));
             }
             finally
             {
@@ -96,7 +116,12 @@ namespace StokTakip
                 {
                     configuration = null;
                     Gunlukcu.Error(ex, "Uygulama ayarları okunamadı.");
-                    if (!TekrarDenensinMi("Uygulama ayarları okunamadı.\n\n" + ex.Message))
+
+                    // Yalnızca UygulamaAyarlari'nın kendi açıklayıcı mesajları gösterilir; diğer hatalar dosya yolu içerebilir.
+                    string ayrinti = ex is FileNotFoundException || ex is InvalidDataException || ex is InvalidOperationException
+                        ? ex.Message
+                        : HataMesaji.BeklenmeyenHata;
+                    if (!TekrarDenensinMi("Uygulama ayarları okunamadı.\n\n" + ayrinti))
                     {
                         Gunlukcu.Information("Ayar hatası nedeniyle uygulama kapatıldı.");
                         return null;
@@ -134,6 +159,36 @@ namespace StokTakip
             }
         }
 
+        // Oturum gerektirmeyen tek sorgu; arayüz iş parçacığını kilitlememek için iş parçacığı havuzunda beklenir.
+        private static bool? IlkKurulumDurumunuAl(IServiceProvider serviceProvider)
+        {
+            while (true)
+            {
+                Cursor.Current = Cursors.WaitCursor;
+                try
+                {
+                    return Task.Run(async () =>
+                    {
+                        await using AsyncServiceScope scope = serviceProvider.CreateAsyncScope();
+                        return await scope.ServiceProvider.GetRequiredService<IKimlikService>().IlkKurulumGerekliMiAsync();
+                    }).GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    Gunlukcu.Error(Gunluk.Ayrinti(ex), "Açılışta kullanıcı durumu okunamadı: {Hata}", Gunluk.HataOzeti(ex));
+                    if (!TekrarDenensinMi(HataMesaji.Olustur(ex)))
+                    {
+                        Gunlukcu.Information("Veritabanı erişim hatası nedeniyle uygulama kapatıldı.");
+                        return null;
+                    }
+                }
+                finally
+                {
+                    Cursor.Current = Cursors.Default;
+                }
+            }
+        }
+
         private static bool TekrarDenensinMi(string mesaj) =>
             MessageBox.Show(
                 mesaj + "\n\nTekrar denemek ister misiniz? İptal ederseniz uygulama kapatılır.",
@@ -151,18 +206,28 @@ namespace StokTakip
             services.AddData(connectionString);
 
             services.AddSingleton<IStokDegisiklikBildirimi, StokDegisiklikBildirimi>();
+            services.AddSingleton<IOturumIzleyici, OturumIzleyici>();
             services.AddTransient<IAnaFormPresenter, AnaFormPresenter>();
             services.AddTransient<ISiparisGecmisiPresenter, SiparisGecmisiPresenter>();
             services.AddTransient<IKategorilerPresenter, KategorilerPresenter>();
             services.AddTransient<IRaporlarPresenter, RaporlarPresenter>();
+            services.AddTransient<IGirisPresenter, GirisPresenter>();
+            services.AddTransient<IIlkKurulumPresenter, IlkKurulumPresenter>();
+            services.AddTransient<IParolaDegistirPresenter, ParolaDegistirPresenter>();
+            services.AddTransient<IKullanicilarPresenter, KullanicilarPresenter>();
+            services.AddTransient<IDenetimKayitlariPresenter, DenetimKayitlariPresenter>();
 
+            // Formlar kök sağlayıcıda izlenmesin diye (her girişte yeni ana form) fabrikayla oluşturulur.
             services.AddTransient<Form1>();
-            services.AddSingleton<Func<SiparisGecmisiForm>>(
-                sp => () => ActivatorUtilities.CreateInstance<SiparisGecmisiForm>(sp));
-            services.AddSingleton<Func<KategorilerForm>>(
-                sp => () => ActivatorUtilities.CreateInstance<KategorilerForm>(sp));
-            services.AddSingleton<Func<RaporlarForm>>(
-                sp => () => ActivatorUtilities.CreateInstance<RaporlarForm>(sp));
+            FormFabrikasi<Form1>(services);
+            FormFabrikasi<GirisForm>(services);
+            FormFabrikasi<IlkKurulumForm>(services);
+            FormFabrikasi<SiparisGecmisiForm>(services);
+            FormFabrikasi<KategorilerForm>(services);
+            FormFabrikasi<RaporlarForm>(services);
+            FormFabrikasi<KullanicilarForm>(services);
+            FormFabrikasi<DenetimKayitlariForm>(services);
+            FormFabrikasi<ParolaDegistirForm>(services);
 
             return services.BuildServiceProvider(new ServiceProviderOptions
             {
@@ -170,5 +235,9 @@ namespace StokTakip
                 ValidateOnBuild = true,
             });
         }
+
+        private static void FormFabrikasi<TForm>(IServiceCollection services)
+            where TForm : Form =>
+            services.AddSingleton<Func<TForm>>(sp => () => ActivatorUtilities.CreateInstance<TForm>(sp));
     }
 }

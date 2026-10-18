@@ -38,6 +38,15 @@
             this.lblDusukStok = new System.Windows.Forms.Label();
             this.btnRaporlar = new System.Windows.Forms.Button();
             this.btnSiparisGecmisi = new System.Windows.Forms.Button();
+            this.btnYonetim = new System.Windows.Forms.Button();
+            this.tlpOturum = new System.Windows.Forms.TableLayoutPanel();
+            this.lblOturum = new System.Windows.Forms.Label();
+            this.lnkParolaDegistir = new System.Windows.Forms.LinkLabel();
+            this.btnCikis = new System.Windows.Forms.Button();
+            this.cmsYonetim = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.tsmKullanicilar = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmDenetimKayitlari = new System.Windows.Forms.ToolStripMenuItem();
+            this.ttIpucu = new System.Windows.Forms.ToolTip(this.components);
             this.tlpGovde = new System.Windows.Forms.TableLayoutPanel();
             this.pnlUrunListesi = new System.Windows.Forms.Panel();
             this.dgvUrunler = new System.Windows.Forms.DataGridView();
@@ -90,6 +99,8 @@
             this.pnlHeader.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.picLogo)).BeginInit();
             this.tlpBaslikSag.SuspendLayout();
+            this.tlpOturum.SuspendLayout();
+            this.cmsYonetim.SuspendLayout();
             this.tlpGovde.SuspendLayout();
             this.pnlUrunListesi.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvUrunler)).BeginInit();
@@ -151,7 +162,10 @@
             //
             this.tlpBaslikSag.AutoSize = true;
             this.tlpBaslikSag.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-            this.tlpBaslikSag.ColumnCount = 4;
+            this.tlpBaslikSag.ColumnCount = 7;
+            this.tlpBaslikSag.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
+            this.tlpBaslikSag.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
+            this.tlpBaslikSag.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
             this.tlpBaslikSag.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
             this.tlpBaslikSag.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
             this.tlpBaslikSag.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
@@ -160,6 +174,9 @@
             this.tlpBaslikSag.Controls.Add(this.lblDusukStok, 1, 0);
             this.tlpBaslikSag.Controls.Add(this.btnRaporlar, 2, 0);
             this.tlpBaslikSag.Controls.Add(this.btnSiparisGecmisi, 3, 0);
+            this.tlpBaslikSag.Controls.Add(this.btnYonetim, 4, 0);
+            this.tlpBaslikSag.Controls.Add(this.tlpOturum, 5, 0);
+            this.tlpBaslikSag.Controls.Add(this.btnCikis, 6, 0);
             this.tlpBaslikSag.Dock = System.Windows.Forms.DockStyle.Right;
             this.tlpBaslikSag.Name = "tlpBaslikSag";
             this.tlpBaslikSag.Padding = new System.Windows.Forms.Padding(0, 0, 24, 0);
@@ -196,7 +213,7 @@
             this.btnRaporlar.Anchor = System.Windows.Forms.AnchorStyles.None;
             this.btnRaporlar.Margin = new System.Windows.Forms.Padding(0, 0, 8, 0);
             this.btnRaporlar.Name = "btnRaporlar";
-            this.btnRaporlar.Size = new System.Drawing.Size(120, 36);
+            this.btnRaporlar.Size = new System.Drawing.Size(100, 36);
             this.btnRaporlar.TabIndex = 2;
             this.btnRaporlar.Tag = "secondary";
             this.btnRaporlar.Text = "Raporlar";
@@ -206,14 +223,100 @@
             // btnSiparisGecmisi
             //
             this.btnSiparisGecmisi.Anchor = System.Windows.Forms.AnchorStyles.None;
-            this.btnSiparisGecmisi.Margin = new System.Windows.Forms.Padding(0);
+            this.btnSiparisGecmisi.Margin = new System.Windows.Forms.Padding(0, 0, 8, 0);
             this.btnSiparisGecmisi.Name = "btnSiparisGecmisi";
-            this.btnSiparisGecmisi.Size = new System.Drawing.Size(160, 36);
+            this.btnSiparisGecmisi.Size = new System.Drawing.Size(140, 36);
             this.btnSiparisGecmisi.TabIndex = 3;
             this.btnSiparisGecmisi.Tag = "secondary";
             this.btnSiparisGecmisi.Text = "Sipariş Geçmişi";
             this.btnSiparisGecmisi.UseVisualStyleBackColor = true;
             this.btnSiparisGecmisi.Click += new System.EventHandler(this.btnSiparisGecmisi_Click);
+            //
+            // btnYonetim
+            //
+            this.btnYonetim.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this.btnYonetim.Margin = new System.Windows.Forms.Padding(0, 0, 16, 0);
+            this.btnYonetim.Name = "btnYonetim";
+            this.btnYonetim.Size = new System.Drawing.Size(110, 36);
+            this.btnYonetim.TabIndex = 4;
+            this.btnYonetim.Tag = "secondary";
+            this.btnYonetim.Text = "Yönetim ▾";
+            this.btnYonetim.UseVisualStyleBackColor = true;
+            this.btnYonetim.Visible = false;
+            this.btnYonetim.Click += new System.EventHandler(this.btnYonetim_Click);
+            //
+            // tlpOturum
+            //
+            this.tlpOturum.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this.tlpOturum.AutoSize = true;
+            this.tlpOturum.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+            this.tlpOturum.ColumnCount = 1;
+            this.tlpOturum.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
+            this.tlpOturum.Controls.Add(this.lblOturum, 0, 0);
+            this.tlpOturum.Controls.Add(this.lnkParolaDegistir, 0, 1);
+            this.tlpOturum.Margin = new System.Windows.Forms.Padding(0, 0, 10, 0);
+            this.tlpOturum.Name = "tlpOturum";
+            this.tlpOturum.RowCount = 2;
+            this.tlpOturum.RowStyles.Add(new System.Windows.Forms.RowStyle());
+            this.tlpOturum.RowStyles.Add(new System.Windows.Forms.RowStyle());
+            this.tlpOturum.TabIndex = 5;
+            //
+            // lblOturum
+            //
+            this.lblOturum.Anchor = System.Windows.Forms.AnchorStyles.Right;
+            this.lblOturum.AutoEllipsis = true;
+            this.lblOturum.AutoSize = true;
+            this.lblOturum.Margin = new System.Windows.Forms.Padding(0);
+            this.lblOturum.MaximumSize = new System.Drawing.Size(190, 0);
+            this.lblOturum.Name = "lblOturum";
+            this.lblOturum.TabIndex = 0;
+            this.lblOturum.Tag = "field";
+            this.lblOturum.Text = "—";
+            this.lblOturum.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            //
+            // lnkParolaDegistir
+            //
+            this.lnkParolaDegistir.Anchor = System.Windows.Forms.AnchorStyles.Right;
+            this.lnkParolaDegistir.AutoSize = true;
+            this.lnkParolaDegistir.LinkBehavior = System.Windows.Forms.LinkBehavior.HoverUnderline;
+            this.lnkParolaDegistir.Margin = new System.Windows.Forms.Padding(0, 2, 0, 0);
+            this.lnkParolaDegistir.Name = "lnkParolaDegistir";
+            this.lnkParolaDegistir.TabIndex = 1;
+            this.lnkParolaDegistir.TabStop = true;
+            this.lnkParolaDegistir.Text = "Parolamı değiştir";
+            this.lnkParolaDegistir.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.lnkParolaDegistir_LinkClicked);
+            //
+            // btnCikis
+            //
+            this.btnCikis.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this.btnCikis.Margin = new System.Windows.Forms.Padding(0);
+            this.btnCikis.Name = "btnCikis";
+            this.btnCikis.Size = new System.Drawing.Size(80, 36);
+            this.btnCikis.TabIndex = 6;
+            this.btnCikis.Tag = "secondary";
+            this.btnCikis.Text = "Çıkış";
+            this.btnCikis.UseVisualStyleBackColor = true;
+            this.btnCikis.Click += new System.EventHandler(this.btnCikis_Click);
+            //
+            // cmsYonetim
+            //
+            this.cmsYonetim.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmKullanicilar,
+            this.tsmDenetimKayitlari});
+            this.cmsYonetim.Name = "cmsYonetim";
+            this.cmsYonetim.ShowImageMargin = false;
+            //
+            // tsmKullanicilar
+            //
+            this.tsmKullanicilar.Name = "tsmKullanicilar";
+            this.tsmKullanicilar.Text = "Kullanıcılar…";
+            this.tsmKullanicilar.Click += new System.EventHandler(this.tsmKullanicilar_Click);
+            //
+            // tsmDenetimKayitlari
+            //
+            this.tsmDenetimKayitlari.Name = "tsmDenetimKayitlari";
+            this.tsmDenetimKayitlari.Text = "Denetim Kayıtları…";
+            this.tsmDenetimKayitlari.Click += new System.EventHandler(this.tsmDenetimKayitlari_Click);
             //
             // tlpGovde
             //
@@ -756,7 +859,7 @@
             this.Controls.Add(this.tlpGovde);
             this.Controls.Add(this.pnlHeader);
             this.Font = new System.Drawing.Font("Segoe UI", 9.75F);
-            this.MinimumSize = new System.Drawing.Size(940, 730);
+            this.MinimumSize = new System.Drawing.Size(1100, 730);
             this.Name = "Form1";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Stok Takip";
@@ -764,6 +867,9 @@
             this.pnlHeader.ResumeLayout(false);
             this.pnlHeader.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.picLogo)).EndInit();
+            this.tlpOturum.ResumeLayout(false);
+            this.tlpOturum.PerformLayout();
+            this.cmsYonetim.ResumeLayout(false);
             this.tlpBaslikSag.ResumeLayout(false);
             this.tlpBaslikSag.PerformLayout();
             this.tlpGovde.ResumeLayout(false);
@@ -797,6 +903,15 @@
         private System.Windows.Forms.Label lblDusukStok;
         private System.Windows.Forms.Button btnRaporlar;
         private System.Windows.Forms.Button btnSiparisGecmisi;
+        private System.Windows.Forms.Button btnYonetim;
+        private System.Windows.Forms.TableLayoutPanel tlpOturum;
+        private System.Windows.Forms.Label lblOturum;
+        private System.Windows.Forms.LinkLabel lnkParolaDegistir;
+        private System.Windows.Forms.Button btnCikis;
+        private System.Windows.Forms.ContextMenuStrip cmsYonetim;
+        private System.Windows.Forms.ToolStripMenuItem tsmKullanicilar;
+        private System.Windows.Forms.ToolStripMenuItem tsmDenetimKayitlari;
+        private System.Windows.Forms.ToolTip ttIpucu;
         private System.Windows.Forms.TableLayoutPanel tlpGovde;
         private System.Windows.Forms.Panel pnlUrunListesi;
         private System.Windows.Forms.Label lblListeBaslik;
