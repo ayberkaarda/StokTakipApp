@@ -135,7 +135,7 @@ public sealed class KimlikService : IKimlikService
             }
             catch (GecersizKimlikBilgisiException)
             {
-                await BasarisizGirisKaydetAsync(kullaniciAdi, bulunan, cancellationToken);
+                await BasarisizGirisKaydetAsync(null, bulunan, cancellationToken);
                 throw;
             }
         }
@@ -236,13 +236,9 @@ public sealed class KimlikService : IKimlikService
         }
     }
 
-    /// <remarks>
-    /// Denenen kullanıcı adı yalnızca geçerli biçimdeyse (parola yanlışlıkla bu alana yazılmış olabilir; geçersiz biçimdeki metin
-    /// hiç yazılmaz) temizlenerek kaydedilir. Kayıt yazılamazsa asıl hata korunur.
-    /// </remarks>
+    /// <remarks>Yalnızca bulunan hesabın kimliği kaydedilir. Kayıt yazılamazsa asıl hata korunur.</remarks>
     private async Task BasarisizGirisKaydetAsync(string? denenenAd, (int Id, string Ad)? bulunan, CancellationToken cancellationToken)
     {
-        var deneme = Kullanici.KullaniciAdiNormallestir(denenenAd, out var normal) ? LogTemizle.Metin(normal) : null;
         var olay = bulunan is { } k
             ? new DenetimOlayi(
                 DenetimIslemi.GirisBasarisiz, DenetimVarlikTurleri.Oturum, $"{k.Ad} için başarısız giriş denemesi", k.Id, k.Ad)
@@ -251,12 +247,9 @@ public sealed class KimlikService : IKimlikService
             }
             : new DenetimOlayi(
                 DenetimIslemi.GirisBasarisiz, DenetimVarlikTurleri.Oturum,
-                deneme is null
-                    ? "Geçersiz biçimde kullanıcı adıyla başarısız giriş denemesi"
-                    : $"Bilinmeyen kullanıcı adıyla başarısız giriş denemesi: {deneme}",
-                VarlikAdi: deneme)
+                "Bilinmeyen kullanıcı adıyla başarısız giriş denemesi")
             {
-                Aktor = new DenetimAktoru(null, deneme ?? DenetimKaydi.SistemKullaniciAdi),
+                Aktor = new DenetimAktoru(null, "(bilinmeyen)"),
             };
 
         try

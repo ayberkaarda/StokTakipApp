@@ -89,7 +89,8 @@ public class DenetimKimlikTestleri
         Assert.Equal((admin.KullaniciId, "yonetici"), (yanlisParola.KullaniciId, yanlisParola.KullaniciAdi));
         var bilinmeyen = kayitlar[2];
         Assert.Null(bilinmeyen.KullaniciId);
-        Assert.Contains("hayalet", bilinmeyen.Ozet);
+        Assert.Equal("(bilinmeyen)", bilinmeyen.KullaniciAdi);
+        Assert.Equal("Bilinmeyen kullanıcı adıyla başarısız giriş denemesi", bilinmeyen.Ozet);
         var gecersiz = kayitlar[3];
         Assert.Null(gecersiz.KullaniciId);
         Assert.DoesNotContain("boşluklu", gecersiz.Ozet + gecersiz.KullaniciAdi + gecersiz.YeniDeger + gecersiz.VarlikAdi);
@@ -107,6 +108,7 @@ public class DenetimKimlikTestleri
             var metin = string.Join("|", kayit.KullaniciAdi, kayit.VarlikTuru, kayit.VarlikAdi, kayit.EskiDeger, kayit.YeniDeger, kayit.Ozet);
             Assert.DoesNotContain("Gizli-Parola", metin, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("Yeni-Parola", metin, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("hayalet", metin, StringComparison.OrdinalIgnoreCase);
         }
 
         await using var context = db.ContextOlustur();
