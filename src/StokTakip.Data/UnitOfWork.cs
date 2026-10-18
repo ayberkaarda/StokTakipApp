@@ -1,6 +1,7 @@
 using System.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using StokTakip.Domain.Exceptions;
 using StokTakip.Domain.Repositories;
 
 namespace StokTakip.Data;
@@ -15,8 +16,17 @@ public sealed class UnitOfWork(StokTakipDbContext context) : IUnitOfWork
         return new UnitOfWorkTransaction(context, transaction);
     }
 
-    public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
-        => context.SaveChangesAsync(cancellationToken);
+    public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new EszamanlilikException();
+        }
+    }
 
     /// <summary>
     /// Geri alınan (veya commit edilmeden kapatılan) transaction sonrası izlenen varlıklar temizlenir;
