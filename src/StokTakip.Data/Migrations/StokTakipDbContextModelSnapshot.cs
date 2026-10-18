@@ -37,6 +37,11 @@ namespace StokTakip.Data.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<DateTime>("Tarih")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")

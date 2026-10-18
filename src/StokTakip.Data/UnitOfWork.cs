@@ -24,7 +24,26 @@ public sealed class UnitOfWork(StokTakipDbContext context) : IUnitOfWork
         }
         catch (DbUpdateConcurrencyException)
         {
+            TransactionDisindaysaTemizle();
             throw new EszamanlilikException();
+        }
+        catch
+        {
+            TransactionDisindaysaTemizle();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Transaction dışındaki başarısız SaveChanges hiçbir şey yazmamıştır; izlenen değişiklikler
+    /// bırakılırsa aynı kapsamdaki sonraki SaveChanges onları yeniden gönderir. Transaction içindeyken
+    /// temizlik geri alma/kapatma sırasında yapılır.
+    /// </summary>
+    private void TransactionDisindaysaTemizle()
+    {
+        if (context.Database.CurrentTransaction is null)
+        {
+            context.ChangeTracker.Clear();
         }
     }
 

@@ -26,6 +26,7 @@ public sealed class StokTakipDbContext(DbContextOptions<StokTakipDbContext> opti
         siparis.Property(x => x.SiparisId).HasColumnName("SiparisID");
         siparis.Property(x => x.UrunId).HasColumnName("UrunID");
         siparis.Property(x => x.Tarih).HasDefaultValueSql("GETDATE()");
+        siparis.Property(x => x.RowVersion).IsRowVersion();
         siparis.HasQueryFilter(x => !x.IsDeleted);
         siparis.HasOne(x => x.Urun)
             .WithMany()

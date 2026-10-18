@@ -21,6 +21,10 @@ internal sealed class SqliteModelCustomizer(ModelCustomizerDependencies dependen
             .Property(x => x.RowVersion)
             .ValueGeneratedNever()
             .IsConcurrencyToken();
+        modelBuilder.Entity<Siparis>()
+            .Property(x => x.RowVersion)
+            .ValueGeneratedNever()
+            .IsConcurrencyToken();
 
         // GETDATE() SQLite'ta yok.
         modelBuilder.Entity<Siparis>()

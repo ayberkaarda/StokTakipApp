@@ -185,6 +185,26 @@ public class SiparisAkisiTestleri
     }
 
     [Fact]
+    public async Task Siparis_ozeti_toplami_int_MaxValue_u_asarsa_repository_long_doner_servis_ust_sinira_doyurur()
+    {
+        using var db = new TestVeritabani();
+        var urunId = await Okuma.UrunEkleAsync(db, "Toptan", int.MaxValue);
+
+        using var kapsam = new ServisKapsami(db);
+        await kapsam.SiparisService.SiparisOlusturAsync(new(urunId, int.MaxValue));
+        await kapsam.StokService.StokGuncelleAsync(urunId, int.MaxValue);
+        await kapsam.SiparisService.SiparisOlusturAsync(new(urunId, int.MaxValue));
+
+        var (sayi, toplam) = await kapsam.SiparisRepository.GetOzetAsync();
+        Assert.Equal(2, sayi);
+        Assert.Equal(2L * int.MaxValue, toplam);
+
+        var ozet = await kapsam.SiparisService.SiparisOzetiGetirAsync();
+        Assert.Equal(2, ozet.ToplamSiparis);
+        Assert.Equal(int.MaxValue, ozet.ToplamAdet);
+    }
+
+    [Fact]
     public async Task Tum_siparisler_silinince_ozet_yeniden_sifir_sifir_olur()
     {
         using var db = new TestVeritabani();
