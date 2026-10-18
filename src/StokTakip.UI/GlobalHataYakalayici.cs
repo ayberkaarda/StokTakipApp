@@ -67,7 +67,7 @@ namespace StokTakip
             }
             catch (Exception ex)
             {
-                Gunlukcu.Warning(ex, "Hata penceresi gösterilemedi.");
+                Gunlukcu.Warning(Gunluk.Ayrinti(ex), "Hata penceresi gösterilemedi: {Hata}", Gunluk.HataOzeti(ex));
             }
         }
     }

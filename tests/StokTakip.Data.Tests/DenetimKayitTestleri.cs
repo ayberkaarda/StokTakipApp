@@ -224,7 +224,9 @@ public class DenetimKayitTestleri
         {
             await kapsam.SiparisService.SiparisOlusturAsync(new SiparisOlusturIstegi(urun.UrunId, 1));
             await kapsam.SiparisService.SiparisOlusturAsync(new SiparisOlusturIstegi(urun.UrunId, 2));
-            await kapsam.DisaAktarimService.SiparisleriCsvAktarAsync(new SiparisGecmisiSorgusu(), new MemoryStream());
+            var sayi = await kapsam.DisaAktarimService.SiparisleriCsvAktarAsync(new SiparisGecmisiSorgusu(), new MemoryStream());
+            Assert.DoesNotContain(await _db.KayitlarAsync(), x => x.Islem == DenetimIslemi.CsvAktarildi);
+            await kapsam.DisaAktarimService.AktarimTamamlandiAsync(sayi);
         }
 
         var kayit = Assert.Single(await _db.KayitlarAsync(), x => x.Islem == DenetimIslemi.CsvAktarildi);

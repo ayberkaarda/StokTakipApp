@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -41,6 +42,7 @@ namespace StokTakip.Presenters
         private bool _yenilemeBekliyor;
         private bool _kapandi;
         private bool _cikisYapiliyor;
+        private bool _girisEkraninaDonuldu;
         private OturumKullanicisi _kullanici;
         private ArayuzYetkileri _yetkiler = ArayuzYetkileri.Yok;
 
@@ -63,6 +65,9 @@ namespace StokTakip.Presenters
             _izleyici = izleyici ?? throw new ArgumentNullException(nameof(izleyici));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
+
+        /// <summary>Çıkış denetim kaydı için en uzun bekleme.</summary>
+        internal TimeSpan CikisZamanAsimi { get; set; } = TimeSpan.FromSeconds(5);
 
         public void Bagla(IAnaFormView view)
         {
@@ -178,19 +183,66 @@ namespace StokTakip.Presenters
             _view.YetkileriUygula(yetkiler);
         }
 
-        // Oturum servis tarafından her durumda kapatılır; çıkış kaydı yazılamasa da giriş ekranına dönülür.
+        // Servis oturumu kaydı yazmadan önce bellekte kapatır: pencereler kaydı beklemeden kapanır. Kayıt en fazla
+        // CikisZamanAsimi kadar beklenir; yanıt yoksa ya da hata olursa oturum (arada yeni oturum açılmadıysa) yerelde kapatılır.
         private async Task CikisYapAsync()
         {
             _cikisYapiliyor = true;
+            long nesil = _oturum.Anlik.Nesil;
+            var zamanAsimi = new CancellationTokenSource(CikisZamanAsimi);
+            Task cikis;
             try
             {
-                await _scopeFactory.CalistirAsync<IKimlikService>(s => s.CikisYapAsync());
+                cikis = _scopeFactory.CalistirAsync<IKimlikService>(s => s.CikisYapAsync(zamanAsimi.Token));
+            }
+            catch (Exception ex)
+            {
+                cikis = Task.FromException(ex);
+            }
+
+            _ = cikis.ContinueWith(
+                t =>
+                {
+                    _ = t.Exception;
+                    zamanAsimi.Dispose();
+                },
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+
+            if (!_oturum.OturumAcikMi)
+            {
+                GirisEkraninaDon();
+            }
+
+            try
+            {
+                if (await Task.WhenAny(cikis, Task.Delay(CikisZamanAsimi)) == cikis)
+                {
+                    await cikis;
+                }
+                else
+                {
+                    _logger.LogWarning("Çıkış denetim kaydı {Sure} içinde yazılamadı.", CikisZamanAsimi);
+                }
             }
             catch (Exception ex)
             {
                 HataMesaji.Logla(_logger, ex);
             }
 
+            _oturum.OturumuKapat(nesil);
+            GirisEkraninaDon();
+        }
+
+        private void GirisEkraninaDon()
+        {
+            if (_girisEkraninaDonuldu)
+            {
+                return;
+            }
+
+            _girisEkraninaDonuldu = true;
             _kapandi = true;
             _view.GirisEkraninaDon(KimlikMetinleri.CikisYapildi);
         }

@@ -271,22 +271,25 @@ namespace StokTakip.Presenters
                 }
 
                 _view.DisaAktariliyor = true;
+
+                // Tek kapsam: oturum işlem başında sabitlenir; "CSV aktarıldı" kaydı dosya taşındıktan sonra aktaranla yazılır.
+                await using AsyncServiceScope scope = _scopeFactory.CreateAsyncScope();
+                IDenetimService servis = null;
                 try
                 {
-                    int toplam = (await _scopeFactory.CalistirAsync<IDenetimService, SayfaliSonucDto<DenetimKaydiDto>>(
-                        s => s.DenetimKayitlariniGetirAsync(filtre with { SayfaBoyutu = 1 }, token))).ToplamKayit;
+                    servis = scope.ServiceProvider.GetRequiredService<IDenetimService>();
+                    int toplam = (await servis.DenetimKayitlariniGetirAsync(filtre with { SayfaBoyutu = 1 }, token)).ToplamKayit;
                     _view.DisaAktarimIlerlemesiGoster(0, toplam);
 
-                    // İlk satır başlıktır.
+                    // İlerleme fiziksel satırlardan yaklaşık izlenir (ilk satır başlık); sonuç sayısı servisten gelir.
                     var sayac = new SatirSayanAkis(hedef, satir =>
                     {
-                        yazilan = Math.Max(0, satir - 1);
                         if (!Kapandi)
                         {
-                            _view.DisaAktarimIlerlemesiGoster(yazilan, toplam);
+                            _view.DisaAktarimIlerlemesiGoster(Math.Clamp(satir - 1, 0, toplam), toplam);
                         }
                     });
-                    await _scopeFactory.CalistirAsync<IDenetimService>(s => s.DenetimKayitlariniCsvAktarAsync(filtre, sayac, token));
+                    yazilan = await servis.DenetimKayitlariniCsvAktarAsync(filtre, sayac, token);
                     tamamlandi = true;
                 }
                 catch (Exception) when (iptal.IsCancellationRequested)
@@ -315,6 +318,11 @@ namespace StokTakip.Presenters
                     }
 
                     tamamlandi = false;
+                }
+
+                if (tamamlandi)
+                {
+                    await SiparisGecmisiPresenter.AktarimiKaydetAsync(_logger, () => servis.AktarimTamamlandiAsync(yazilan, CancellationToken.None));
                 }
             }
             finally

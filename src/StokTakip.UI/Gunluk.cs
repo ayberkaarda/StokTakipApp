@@ -43,13 +43,13 @@ namespace StokTakip
             return ex.InnerException == null ? ozet : $"{ozet} <- {ex.GetBaseException().GetType().Name}";
         }
 
-        // Tam exception (mesaj ve yığın) yalnızca Debug derlemesinde ya da günlük düzeyi Debug iken yazılır.
+        // Tam exception (mesaj ve yığın) yalnızca Debug derlemesinde yazılır; Release'te günlük düzeyi Debug olsa da yazılmaz.
         public static Exception Ayrinti(Exception ex, bool debugDuzeyiAcik)
         {
 #if DEBUG
             return ex;
 #else
-            return debugDuzeyiAcik ? ex : null;
+            return null;
 #endif
         }
 

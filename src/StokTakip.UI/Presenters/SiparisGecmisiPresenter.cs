@@ -309,22 +309,26 @@ namespace StokTakip.Presenters
                 }
 
                 _view.DisaAktariliyor = true;
+
+                // Tek kapsam: oturum işlem başında sabitlenir; "CSV aktarıldı" kaydı dosya taşındıktan sonra aktaranla yazılır.
+                await using AsyncServiceScope scope = _scopeFactory.CreateAsyncScope();
+                ISiparisDisaAktarimService aktarim = null;
                 try
                 {
-                    int toplam = (await _scopeFactory.CalistirAsync<ISiparisService, SayfaliSonucDto<SiparisDto>>(
-                        s => s.SiparisGecmisiSayfaGetirAsync(filtre with { SayfaBoyutu = 1 }, token))).ToplamKayit;
+                    aktarim = scope.ServiceProvider.GetRequiredService<ISiparisDisaAktarimService>();
+                    int toplam = (await scope.ServiceProvider.GetRequiredService<ISiparisService>()
+                        .SiparisGecmisiSayfaGetirAsync(filtre with { SayfaBoyutu = 1 }, token)).ToplamKayit;
                     _view.DisaAktarimIlerlemesiGoster(0, toplam);
 
-                    // İlk satır başlıktır.
+                    // İlerleme fiziksel satırlardan yaklaşık izlenir (ilk satır başlık); sonuç sayısı servisten gelir.
                     var sayac = new SatirSayanAkis(hedef, satir =>
                     {
-                        yazilan = Math.Max(0, satir - 1);
                         if (!Kapandi)
                         {
-                            _view.DisaAktarimIlerlemesiGoster(yazilan, toplam);
+                            _view.DisaAktarimIlerlemesiGoster(Math.Clamp(satir - 1, 0, toplam), toplam);
                         }
                     });
-                    await _scopeFactory.CalistirAsync<ISiparisDisaAktarimService>(s => s.SiparisleriCsvAktarAsync(filtre, sayac, token));
+                    yazilan = await aktarim.SiparisleriCsvAktarAsync(filtre, sayac, token);
                     tamamlandi = true;
                 }
                 catch (Exception) when (iptal.IsCancellationRequested)
@@ -340,19 +344,10 @@ namespace StokTakip.Presenters
                     }
                 }
 
-                try
+                tamamlandi = HedefiKapat(hedef, tamamlandi);
+                if (tamamlandi)
                 {
-                    _view.DisaAktarimHedefiniKapat(hedef, tamamlandi);
-                }
-                catch (Exception ex)
-                {
-                    HataMesaji.Logla(_logger, ex);
-                    if (tamamlandi && !Kapandi)
-                    {
-                        _view.HataGoster(DisaAktarimHataMesaji(ex));
-                    }
-
-                    tamamlandi = false;
+                    await AktarimiKaydetAsync(_logger, () => aktarim.AktarimTamamlandiAsync(yazilan, CancellationToken.None));
                 }
             }
             finally
@@ -377,6 +372,40 @@ namespace StokTakip.Presenters
             else if (iptalEdildi)
             {
                 _view.BilgiGoster(IptalMesaji);
+            }
+        }
+
+        // Hedefe taşıma başarısızsa false döner; aktarım kaydedilmez.
+        private bool HedefiKapat(Stream hedef, bool tamamlandi)
+        {
+            try
+            {
+                _view.DisaAktarimHedefiniKapat(hedef, tamamlandi);
+                return tamamlandi;
+            }
+            catch (Exception ex)
+            {
+                HataMesaji.Logla(_logger, ex);
+                if (tamamlandi && !Kapandi)
+                {
+                    _view.HataGoster(DisaAktarimHataMesaji(ex));
+                }
+
+                return false;
+            }
+        }
+
+        // Dosya artık hedefte: kayıt yazılamazsa aktarım geri alınamaz, yalnızca günlüğe yazılır.
+        internal static async Task AktarimiKaydetAsync(ILogger logger, Func<Task> kaydet)
+        {
+            try
+            {
+                await kaydet();
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning("CSV dosyası kaydedildi, ancak aktarım denetim kaydına yazılamadı.");
+                HataMesaji.Logla(logger, ex);
             }
         }
 

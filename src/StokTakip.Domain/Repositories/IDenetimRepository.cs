@@ -13,4 +13,8 @@ public interface IDenetimRepository
     /// <summary>İzlenmeyen kayıtlar; Zaman'a, eşitlikte DenetimId'ye göre yeniden eskiye.</summary>
     Task<SayfaliSonuc<DenetimKaydi>> SayfaGetirAsync(
         DenetimFiltresi filtre, int sayfa, int sayfaBoyutu, CancellationToken cancellationToken = default);
+
+    /// <summary>Dışa aktarım için anahtar tabanlı sayfa: <paramref name="sonDenetimId"/>'den küçük kayıtlar, DenetimId azalan.</summary>
+    Task<IReadOnlyList<DenetimKaydi>> CsvSayfasiGetirAsync(
+        DenetimFiltresi filtre, long? sonDenetimId, int adet, CancellationToken cancellationToken = default);
 }

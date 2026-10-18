@@ -7,7 +7,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using StokTakip.Application.Kimlik;
-using StokTakip.Application.Services;
 using StokTakip.Domain;
 using StokTakip.Domain.Exceptions;
 using StokTakip.Views;
@@ -169,7 +168,7 @@ namespace StokTakip.Presenters
                 return;
             }
 
-            _logger.LogInformation("Kullanıcı oluşturuldu: {KullaniciAdi} ({Rol})", LogTemizle.Metin(eklenen.KullaniciAdi), eklenen.Rol);
+            _logger.LogInformation("Kullanıcı oluşturuldu. KullaniciId={KullaniciId}, Rol={Rol}", eklenen.KullaniciId, eklenen.Rol);
             _view.YeniKullaniciAdi = string.Empty;
             _view.YeniParola = string.Empty;
             _view.YeniParolaTekrar = string.Empty;

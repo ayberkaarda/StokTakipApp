@@ -13,15 +13,15 @@ public class SiparisDisaAktarimServiceTests
     private static readonly DateTime Tarih = new(2026, 7, 4, 9, 5, 59);
 
     private readonly ISiparisService _siparisler = Substitute.For<ISiparisService>();
-    private readonly List<SiparisGecmisiSorgusu> _gelenSorgular = [];
+    private readonly List<(SiparisGecmisiSorgusu Sorgu, int? SonId, int Adet)> _gelenSorgular = [];
     private readonly SiparisDisaAktarimService _servis;
     private List<SiparisDto> _kayitlar = [];
 
     public SiparisDisaAktarimServiceTests()
     {
         _servis = new SiparisDisaAktarimService(_siparisler);
-        _siparisler.SiparisGecmisiSayfaGetirAsync(Arg.Any<SiparisGecmisiSorgusu>(), Arg.Any<CancellationToken>())
-            .Returns(ci => Sayfala(ci.ArgAt<SiparisGecmisiSorgusu>(0)));
+        _siparisler.SiparisCsvSayfasiGetirAsync(Arg.Any<SiparisGecmisiSorgusu>(), Arg.Any<int?>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(ci => Sayfala(ci.ArgAt<SiparisGecmisiSorgusu>(0), ci.ArgAt<int?>(1), ci.ArgAt<int>(2)));
     }
 
     // ---- Argümanlar ----
@@ -80,7 +80,7 @@ public class SiparisDisaAktarimServiceTests
     }
 
     [Fact]
-    public async Task Filtre_sayfa_1_ve_200_boyutla_diger_alanlar_korunarak_iletilir()
+    public async Task Filtre_diger_alanlar_korunarak_anahtar_tabanli_sayfaya_iletilir()
     {
         var filtre = new SiparisGecmisiSorgusu(new DateTime(2026, 1, 1), new DateTime(2026, 2, 1), "kalem", Sayfa: 7, SayfaBoyutu: 20, UrunId: 42);
         var token = new CancellationTokenSource().Token;
@@ -88,8 +88,10 @@ public class SiparisDisaAktarimServiceTests
         await _servis.SiparisleriCsvAktarAsync(filtre, new MemoryStream(), token);
 
         var sorgu = Assert.Single(_gelenSorgular);
-        Assert.Equal(filtre with { Sayfa = 1, SayfaBoyutu = 200 }, sorgu);
-        await _siparisler.Received(1).SiparisGecmisiSayfaGetirAsync(Arg.Any<SiparisGecmisiSorgusu>(), token);
+        Assert.Equal(filtre with { Sayfa = 1, SayfaBoyutu = 200 }, sorgu.Sorgu);
+        Assert.Null(sorgu.SonId);
+        await _siparisler.Received(1).SiparisCsvSayfasiGetirAsync(Arg.Any<SiparisGecmisiSorgusu>(), null, Arg.Any<int>(), token);
+        await _siparisler.DidNotReceiveWithAnyArgs().SiparisGecmisiSayfaGetirAsync(default!, default);
     }
 
     // ---- RFC 4180 tırnaklama ----
@@ -101,7 +103,8 @@ public class SiparisDisaAktarimServiceTests
     [InlineData("Satır\nİki", "\"Satır\nİki\"")]
     [InlineData("Satır\r\nİki", "\"Satır\r\nİki\"")]
     [InlineData("Satır\rİki", "\"Satır\rİki\"")]
-    [InlineData("Düz, virgüllü", "Düz, virgüllü")]
+    [InlineData("Düz, virgüllü", "\"Düz, virgüllü\"")]
+    [InlineData("a,b", "\"a,b\"")]
     [InlineData("tek'tırnak", "tek'tırnak")]
     public async Task Ozel_karakter_iceren_hucre_cift_tirnakla_sarilir(string urunAdi, string beklenen)
     {
@@ -123,6 +126,7 @@ public class SiparisDisaAktarimServiceTests
     [InlineData("\tSekme", "'\tSekme")]
     [InlineData("\rCR", "\"'\rCR\"")]
     [InlineData("=a;b", "\"'=a;b\"")]
+    [InlineData("=a,b", "\"'=a,b\"")]
     public async Task Formul_baslangicli_hucreye_tek_tirnak_eklenir(string urunAdi, string beklenen)
     {
         _kayitlar = [new SiparisDto(1, 2, urunAdi, 3, Tarih)];
@@ -130,6 +134,33 @@ public class SiparisDisaAktarimServiceTests
         var metin = Metin(await AktarAsync());
 
         Assert.Equal($"{Baslik}\r\n1;2;{beklenen};3;04.07.2026 09:05\r\n", metin);
+    }
+
+    /// <summary>
+    /// Dosya virgül ayırıcıyla açılırsa tırnaklı hücre virgülde bölünür (tırnak alan başında değildir);
+    /// virgül ya da satır sonundan sonra gelen formül karakteri de etkisiz kılınır.
+    /// </summary>
+    [Theory]
+    [InlineData("Kalem,=HYPERLINK(1)", "\"Kalem,'=HYPERLINK(1)\"")]
+    [InlineData("a,+1", "\"a,'+1\"")]
+    [InlineData("a,-1", "\"a,'-1\"")]
+    [InlineData("a,@x", "\"a,'@x\"")]
+    [InlineData("a,\tb", "\"a,'\tb\"")]
+    [InlineData("a,\"=1\"", "\"a,'\"\"=1\"\"\"")]
+    [InlineData("Satır\n=cmd", "\"Satır\n'=cmd\"")]
+    [InlineData("Satır\r=cmd", "\"Satır\r'=cmd\"")]
+    [InlineData("a, =b", "\"a, =b\"")]
+    public async Task Virgul_ayiricili_acilista_da_formul_calismaz(string urunAdi, string beklenen)
+    {
+        _kayitlar = [new SiparisDto(1, 2, urunAdi, 3, Tarih)];
+
+        var metin = Metin(await AktarAsync());
+
+        Assert.Equal($"{Baslik}\r\n1;2;{beklenen};3;04.07.2026 09:05\r\n", metin);
+        foreach (var alan in VirgulleBol(metin))
+        {
+            Assert.False(alan.Length > 0 && alan[0] is '=' or '+' or '@', $"Virgülle açılışta formül alanı: {alan}");
+        }
     }
 
     [Theory]
@@ -148,37 +179,37 @@ public class SiparisDisaAktarimServiceTests
     /// <summary>
     /// Karar kodu ilk karaktere bakar, değerin sayı olup olmadığına bakmaz: "-5" gibi meşru ve
     /// negatif sayı görünümlü bir Ürün Adı da "'" ön ekini alır (Excel'de metin olarak görünür).
-    /// Sayısal sütunlar (Sipariş No, Ürün No, Adet) aynı Hucre fonksiyonundan geçer; normalde
-    /// pozitif olduklarından ön ek almazlar, negatif gelirse onlar da ön ek alır.
     /// </summary>
     [Fact]
     public async Task Negatif_sayi_gorunumlu_urun_adi_da_on_ek_alir_belgelenen_davranis()
     {
         _kayitlar =
         [
-            new SiparisDto(1, 2, "-5", 3, Tarih),
             new SiparisDto(2, 2, "-10 indirimli", 3, Tarih),
+            new SiparisDto(1, 2, "-5", 3, Tarih),
             new SiparisDto(-3, -4, "Normal", -5, Tarih),
         ];
 
         var satirlar = Satirlar(await AktarAsync());
 
-        Assert.Equal("1;2;'-5;3;04.07.2026 09:05", satirlar[1]);
-        Assert.Equal("2;2;'-10 indirimli;3;04.07.2026 09:05", satirlar[2]);
+        Assert.Equal("2;2;'-10 indirimli;3;04.07.2026 09:05", satirlar[1]);
+        Assert.Equal("1;2;'-5;3;04.07.2026 09:05", satirlar[2]);
         Assert.Equal("'-3;'-4;Normal;'-5;04.07.2026 09:05", satirlar[3]);
     }
 
     // ---- Sayfalama ----
 
     [Fact]
-    public async Task Dort_yuz_elli_kayit_uc_sayfada_sirayla_tekrarsiz_yazilir()
+    public async Task Dort_yuz_elli_kayit_uc_sayfada_sirayla_tekrarsiz_yazilir_ve_sayi_doner()
     {
         _kayitlar = Uret(450);
+        var akis = new MemoryStream();
 
-        var satirlar = Satirlar(await AktarAsync());
+        var sayi = await _servis.SiparisleriCsvAktarAsync(new SiparisGecmisiSorgusu(), akis);
 
-        Assert.Equal(new[] { 1, 2, 3 }, _gelenSorgular.Select(x => x.Sayfa));
-        Assert.All(_gelenSorgular, x => Assert.Equal(200, x.SayfaBoyutu));
+        var satirlar = Satirlar(akis.ToArray());
+        Assert.Equal(450, sayi);
+        Assert.Equal(new int?[] { null, 251, 51 }, _gelenSorgular.Select(x => x.SonId));
         Assert.Equal(1 + 450 + 1, satirlar.Length);
         Assert.Equal("", satirlar[^1]);
         var idler = satirlar[1..^1].Select(s => int.Parse(s.Split(';')[0])).ToList();
@@ -199,6 +230,14 @@ public class SiparisDisaAktarimServiceTests
 
         Assert.Equal(beklenenSorgu, _gelenSorgular.Count);
         Assert.Equal(kayit + 2, satirlar.Length);
+    }
+
+    [Fact]
+    public async Task Cok_satirli_urun_adinda_donen_sayi_fiziksel_satir_degil_kayit_sayisidir()
+    {
+        _kayitlar = [new SiparisDto(2, 1, "Bir\nİki\nÜç", 1, Tarih), new SiparisDto(1, 1, "Dört\r\nBeş", 1, Tarih)];
+
+        Assert.Equal(2, await _servis.SiparisleriCsvAktarAsync(new(), new MemoryStream()));
     }
 
     // ---- İptal ve akışın yaşam süresi ----
@@ -235,16 +274,15 @@ public class SiparisDisaAktarimServiceTests
 
     /// <summary>
     /// Belgelenen davranış: ikinci sayfa okunurken iptal edilirse istisna fırlar, ancak o ana kadar
-    /// yazılan BOM + başlık + ilk 200 satır akışta kalır (StreamWriter dispose edilirken boşaltılır).
-    /// Yarım dosyanın silinmesi çağıranın sorumluluğundadır; akış açık kalır.
+    /// yazılan BOM + başlık + ilk 200 satır akışta kalır. Yarım dosyanın silinmesi çağıranın sorumluluğundadır.
     /// </summary>
     [Fact]
     public async Task Sayfalar_arasinda_iptal_istisna_firlatir_ve_onceki_satirlar_akista_kalir()
     {
         using var kaynak = new CancellationTokenSource();
         _kayitlar = Uret(450);
-        _siparisler.SiparisGecmisiSayfaGetirAsync(Arg.Is<SiparisGecmisiSorgusu>(x => x.Sayfa == 2), Arg.Any<CancellationToken>())
-            .Returns<SayfaliSonucDto<SiparisDto>>(_ =>
+        _siparisler.SiparisCsvSayfasiGetirAsync(Arg.Any<SiparisGecmisiSorgusu>(), Arg.Is<int?>(x => x != null), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns<IReadOnlyList<SiparisDto>>(_ =>
             {
                 kaynak.Cancel();
                 throw new OperationCanceledException(kaynak.Token);
@@ -258,7 +296,7 @@ public class SiparisDisaAktarimServiceTests
         var satirlar = Satirlar(akis.ToArray());
         Assert.Equal(Baslik, satirlar[0]);
         Assert.Equal(1 + 200 + 1, satirlar.Length);
-        Assert.Equal("200;", satirlar[200][..4]);
+        Assert.Equal("251;", satirlar[200][..4]);
         Assert.Equal("", satirlar[^1]);
     }
 
@@ -267,10 +305,10 @@ public class SiparisDisaAktarimServiceTests
     {
         using var kaynak = new CancellationTokenSource();
         _kayitlar = Uret(450);
-        _siparisler.SiparisGecmisiSayfaGetirAsync(Arg.Is<SiparisGecmisiSorgusu>(x => x.Sayfa == 2), Arg.Any<CancellationToken>())
+        _siparisler.SiparisCsvSayfasiGetirAsync(Arg.Any<SiparisGecmisiSorgusu>(), Arg.Is<int?>(x => x != null), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(ci =>
             {
-                var sonuc = Sayfala(ci.ArgAt<SiparisGecmisiSorgusu>(0));
+                var sonuc = Sayfala(ci.ArgAt<SiparisGecmisiSorgusu>(0), ci.ArgAt<int?>(1), ci.ArgAt<int>(2));
                 kaynak.Cancel();
                 return sonuc;
             });
@@ -281,14 +319,14 @@ public class SiparisDisaAktarimServiceTests
 
         var satirlar = Satirlar(akis.ToArray());
         Assert.Equal(1 + 200 + 1, satirlar.Length);
-        Assert.DoesNotContain(satirlar, s => s.StartsWith("201;", StringComparison.Ordinal));
-        Assert.Equal(new[] { 1, 2 }, _gelenSorgular.Select(x => x.Sayfa));
+        Assert.DoesNotContain(satirlar, s => s.StartsWith("250;", StringComparison.Ordinal));
+        Assert.Equal(2, _gelenSorgular.Count);
     }
 
     [Fact]
     public async Task Ilk_sayfa_hatasinda_akisa_hic_yazilmaz()
     {
-        _siparisler.SiparisGecmisiSayfaGetirAsync(Arg.Any<SiparisGecmisiSorgusu>(), Arg.Any<CancellationToken>())
+        _siparisler.SiparisCsvSayfasiGetirAsync(Arg.Any<SiparisGecmisiSorgusu>(), Arg.Any<int?>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new InvalidOperationException("db yok"));
         var akis = new MemoryStream();
 
@@ -299,17 +337,17 @@ public class SiparisDisaAktarimServiceTests
 
     // ---- Yardımcılar ----
 
-    private SayfaliSonucDto<SiparisDto> Sayfala(SiparisGecmisiSorgusu sorgu)
+    private IReadOnlyList<SiparisDto> Sayfala(SiparisGecmisiSorgusu sorgu, int? sonId, int adet)
     {
-        _gelenSorgular.Add(sorgu);
-        var boyut = Math.Clamp(sorgu.SayfaBoyutu, 1, 200);
-        var sayfa = Math.Max(1, sorgu.Sayfa);
-        var ogeler = _kayitlar.Skip((sayfa - 1) * boyut).Take(boyut).ToList();
-        return new SayfaliSonucDto<SiparisDto>(ogeler, _kayitlar.Count, sayfa, boyut);
+        _gelenSorgular.Add((sorgu, sonId, adet));
+        return _kayitlar.Where(x => sonId is not { } son || x.SiparisId < son)
+            .OrderByDescending(x => x.SiparisId).Take(adet).ToList();
     }
 
+    /// <summary>SiparisId azalan (dışa aktarım sırası).</summary>
     private static List<SiparisDto> Uret(int adet)
-        => Enumerable.Range(1, adet).Select(i => new SiparisDto(i, 1 + (i % 7), $"Ürün {i}", i, Tarih.AddMinutes(-i))).ToList();
+        => Enumerable.Range(1, adet).Select(i => adet - i + 1)
+            .Select(i => new SiparisDto(i, 1 + (i % 7), $"Ürün {i}", i, Tarih.AddMinutes(-i))).ToList();
 
     private async Task<byte[]> AktarAsync()
     {
@@ -325,4 +363,32 @@ public class SiparisDisaAktarimServiceTests
     }
 
     private static string[] Satirlar(byte[] bayt) => Metin(bayt).Split("\r\n");
+
+    /// <summary>Excel'in virgül ayırıcılı ayrıştırmasının yaklaşığı: tırnak yalnızca alan başında özeldir.</summary>
+    private static List<string> VirgulleBol(string metin)
+    {
+        var alanlar = new List<string>();
+        var i = 0;
+        while (i <= metin.Length)
+        {
+            var sb = new StringBuilder();
+            if (i < metin.Length && metin[i] == '"')
+            {
+                i++;
+                while (i < metin.Length)
+                {
+                    if (metin[i] == '"' && i + 1 < metin.Length && metin[i + 1] == '"') { sb.Append('"'); i += 2; }
+                    else if (metin[i] == '"') { i++; break; }
+                    else sb.Append(metin[i++]);
+                }
+            }
+
+            while (i < metin.Length && metin[i] is not (',' or '\n' or '\r'))
+                sb.Append(metin[i++]);
+            alanlar.Add(sb.ToString());
+            i++;
+        }
+
+        return alanlar;
+    }
 }

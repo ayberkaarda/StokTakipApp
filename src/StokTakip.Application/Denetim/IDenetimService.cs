@@ -17,10 +17,15 @@ public interface IDenetimService
         DenetimSorgusu sorgu, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Filtreye uyan tüm kayıtları (sayfa ve sayfa boyutu yok sayılır) UTF-8 BOM'lu, noktalı virgülle ayrılmış CSV olarak yazar;
-    /// aktarımın kendisi de denetim kaydına geçer.
+    /// Filtreye uyan tüm kayıtları (sayfa ve sayfa boyutu yok sayılır) DenetimId azalan sırada UTF-8 BOM'lu,
+    /// noktalı virgülle ayrılmış CSV olarak yazar. Yetki aktarım bitince yeniden denetlenir.
     /// </summary>
-    /// <exception cref="YetkisizIslemException">Akışa tek bayt yazılmadan önce.</exception>
-    Task DenetimKayitlariniCsvAktarAsync(
+    /// <exception cref="YetkisizIslemException">Akışa tek bayt yazılmadan önce ya da aktarım sonunda.</exception>
+    /// <returns>Yazılan kayıt sayısı (başlık hariç).</returns>
+    Task<int> DenetimKayitlariniCsvAktarAsync(
         DenetimSorgusu sorgu, Stream hedef, CancellationToken cancellationToken = default);
+
+    /// <summary>Dosya hedefe başarıyla taşındıktan sonra aktarımı denetim kaydına yazar.</summary>
+    /// <exception cref="InvalidOperationException">Bu örnekte tamamlanmış bir aktarım yoksa.</exception>
+    Task AktarimTamamlandiAsync(int kayitSayisi, CancellationToken cancellationToken = default);
 }

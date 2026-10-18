@@ -21,4 +21,26 @@ internal static class IslemGunlugu
 
         return false;
     }
+
+    /// <summary>Beklenmeyen hatanın günlüğe yazılacak özeti: yalnızca tür zinciri (ham metin SQL, kullanıcı ya da ürün adı içerebilir).</summary>
+    public static string HataOzeti(Exception ex)
+    {
+        var turler = new List<string>();
+        for (Exception? ic = ex; ic is not null && turler.Count < 5; ic = ic.InnerException)
+        {
+            turler.Add(ic.GetType().Name);
+        }
+
+        return string.Join(" <- ", turler);
+    }
+
+    /// <summary>Tam istisna (mesaj ve yığın) yalnızca Debug derlemesinde günlüğe eklenir.</summary>
+    public static Exception? Ayrinti(Exception ex)
+    {
+#if DEBUG
+        return ex;
+#else
+        return null;
+#endif
+    }
 }

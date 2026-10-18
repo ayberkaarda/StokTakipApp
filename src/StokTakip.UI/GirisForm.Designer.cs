@@ -48,6 +48,7 @@ namespace StokTakip
             //
             // pnlKart
             //
+            this.pnlKart.AutoScroll = true;
             this.pnlKart.Controls.Add(this.tlpKart);
             this.pnlKart.Dock = System.Windows.Forms.DockStyle.Fill;
             this.pnlKart.Name = "pnlKart";
@@ -69,7 +70,9 @@ namespace StokTakip
             this.tlpKart.Controls.Add(this.txtParola, 0, 7);
             this.tlpKart.Controls.Add(this.btnGiris, 0, 8);
             this.tlpKart.Controls.Add(this.lblIpucu, 0, 9);
-            this.tlpKart.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tlpKart.AutoSize = true;
+            this.tlpKart.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+            this.tlpKart.Dock = System.Windows.Forms.DockStyle.Top;
             this.tlpKart.Name = "tlpKart";
             this.tlpKart.RowCount = 11;
             this.tlpKart.RowStyles.Add(new System.Windows.Forms.RowStyle());

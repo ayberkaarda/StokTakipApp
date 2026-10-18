@@ -23,8 +23,13 @@ public static class DependencyInjection
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<IParolaHasher>(_ => new ParolaHasher());
         services.TryAddSingleton<IOturumBaglami, OturumBaglami>();
-        services.TryAddScoped<IYetkiDenetcisi, OturumYetkiDenetcisi>();
-        services.TryAddScoped<IDenetimKaydedici, DenetimKaydedici>();
+        // Bir kapsam bir işlemdir: oturum ilk yetki denetiminde sabitlenir, denetim kaydı aynı anlığı kullanır.
+        services.TryAddScoped<IslemOturumu>();
+        services.TryAddScoped<IYetkiDenetcisi>(sp => new OturumYetkiDenetcisi(
+            sp.GetRequiredService<IOturumBaglami>(), sp.GetRequiredService<IKullaniciRepository>(), sp.GetRequiredService<IslemOturumu>()));
+        services.TryAddScoped<IDenetimKaydedici>(sp => new DenetimKaydedici(
+            sp.GetRequiredService<IDenetimRepository>(), sp.GetRequiredService<IUnitOfWork>(), sp.GetRequiredService<IOturumBaglami>(),
+            sp.GetRequiredService<IslemOturumu>()));
 
         // Kurucular açıkça seçilir: günlükleyici kayıtlı olmasa da denetim kaydedicisi her zaman bağlanır.
         services.AddScoped<IKimlikService>(sp => new KimlikService(

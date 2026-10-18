@@ -22,6 +22,7 @@ public sealed class DenetimService : IDenetimService
     private readonly IDenetimRepository _repository;
     private readonly IDenetimKaydedici _denetim;
     private readonly TimeProvider _timeProvider;
+    private int? _tamamlanan;
 
     public DenetimService(IDenetimRepository repository)
         : this(repository, NullDenetimKaydedici.Instance, TimeProvider.System)
@@ -47,7 +48,8 @@ public sealed class DenetimService : IDenetimService
         return sonuc.ToDto(DtoOlustur);
     }
 
-    public async Task DenetimKayitlariniCsvAktarAsync(
+    /// <remarks>Sayfalar DenetimId'ye göre anahtar tabanlı okunur; aktarım sürerken eklenen kayıt tekrar ya da atlama yaratmaz.</remarks>
+    public async Task<int> DenetimKayitlariniCsvAktarAsync(
         DenetimSorgusu sorgu, Stream hedef, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(hedef);
@@ -55,38 +57,51 @@ public sealed class DenetimService : IDenetimService
         if (!hedef.CanWrite)
             throw new ArgumentException("Hedef akış yazılabilir olmalıdır.", nameof(hedef));
 
-        var sayfaNo = 1;
-        var sayfa = await _repository.SayfaGetirAsync(filtre, sayfaNo, MaksimumSayfaBoyutu, cancellationToken);
+        _tamamlanan = null;
+        var sayfa = await _repository.CsvSayfasiGetirAsync(filtre, null, MaksimumSayfaBoyutu + 1, cancellationToken);
         await hedef.WriteAsync(CsvBicimi.Bom, cancellationToken);
-        var satirSayisi = 0;
+        var kayitSayisi = 0;
         await using (var yazici = new StreamWriter(hedef, new UTF8Encoding(false), 4096, leaveOpen: true))
         {
             yazici.NewLine = "\r\n";
             await yazici.WriteLineAsync(CsvBaslik.AsMemory(), cancellationToken);
             while (true)
             {
-                foreach (var kayit in sayfa.Ogeler)
+                foreach (var kayit in sayfa.Take(MaksimumSayfaBoyutu))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     await yazici.WriteLineAsync(CsvSatiri(kayit).AsMemory(), cancellationToken);
-                    satirSayisi++;
+                    kayitSayisi++;
                 }
 
-                if (sayfa.Ogeler.Count < MaksimumSayfaBoyutu || sayfaNo >= sayfa.ToplamSayfa)
+                if (sayfa.Count <= MaksimumSayfaBoyutu)
                     break;
-                sayfaNo = checked(sayfaNo + 1);
-                sayfa = await _repository.SayfaGetirAsync(filtre, sayfaNo, MaksimumSayfaBoyutu, cancellationToken);
+                var sonId = sayfa[MaksimumSayfaBoyutu - 1].DenetimId;
+                sayfa = await _repository.CsvSayfasiGetirAsync(filtre, sonId, MaksimumSayfaBoyutu + 1, cancellationToken);
             }
 
             await yazici.FlushAsync(cancellationToken);
         }
 
-        var satir = DenetimMetni.Sayi(satirSayisi);
+        _tamamlanan = kayitSayisi;
+        return kayitSayisi;
+    }
+
+    public async Task AktarimTamamlandiAsync(int kayitSayisi, CancellationToken cancellationToken = default)
+    {
+        if (_tamamlanan != kayitSayisi)
+            throw new InvalidOperationException("Kaydedilecek tamamlanmış bir aktarım yok.");
+
+        _tamamlanan = null;
+        var satir = DenetimMetni.Sayi(kayitSayisi);
         await _denetim.KaydetVeYazAsync(
             new DenetimOlayi(
                 DenetimIslemi.CsvAktarildi, DenetimVarlikTurleri.Denetim,
                 $"Denetim kayıtları CSV olarak aktarıldı ({satir} satır).",
-                YeniDeger: $"Satır={satir}"),
+                YeniDeger: $"Satır={satir}")
+            {
+                IslemSonrasi = true,
+            },
             cancellationToken);
     }
 

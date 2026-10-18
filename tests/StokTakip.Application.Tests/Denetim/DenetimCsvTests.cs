@@ -19,11 +19,26 @@ internal sealed class BellekDenetimRepository : IDenetimRepository
 
     public void Add(DenetimKaydi kayit) => Kayitlar.Add(kayit);
 
+    public List<(DenetimFiltresi Filtre, long? SonId, int Adet)> CsvSorgulari { get; } = [];
+
+    /// <summary>Her sayfa okunmadan önce, o yöntemin kaçıncı okuması olduğuyla çağrılır.</summary>
+    public Action<int>? SayfaOkununca { get; set; }
+
     public Task<SayfaliSonuc<DenetimKaydi>> SayfaGetirAsync(DenetimFiltresi filtre, int sayfa, int sayfaBoyutu, CancellationToken cancellationToken = default)
     {
         Sorgular.Add((filtre, sayfa, sayfaBoyutu));
+        SayfaOkununca?.Invoke(Sorgular.Count);
         var ogeler = Kayitlar.Skip((sayfa - 1) * sayfaBoyutu).Take(sayfaBoyutu).ToList();
         return Task.FromResult(new SayfaliSonuc<DenetimKaydi>(ogeler, Kayitlar.Count, sayfa, sayfaBoyutu));
+    }
+
+    public Task<IReadOnlyList<DenetimKaydi>> CsvSayfasiGetirAsync(
+        DenetimFiltresi filtre, long? sonDenetimId, int adet, CancellationToken cancellationToken = default)
+    {
+        CsvSorgulari.Add((filtre, sonDenetimId, adet));
+        SayfaOkununca?.Invoke(CsvSorgulari.Count);
+        return Task.FromResult<IReadOnlyList<DenetimKaydi>>(Kayitlar.Where(x => sonDenetimId is not { } son || x.DenetimId < son)
+            .OrderByDescending(x => x.DenetimId).Take(adet).ToList());
     }
 
     public static DenetimKaydi Kayit(
@@ -99,9 +114,15 @@ public class DenetimCsvTests
         var satirlar = await AktarAsync(new DenetimSorgusu(Sayfa: 5, SayfaBoyutu: 3, KullaniciAdi: "ali"));
 
         Assert.Equal(452, satirlar.Length);
-        Assert.EndsWith(";satir-450", satirlar[450]);
-        Assert.Equal(new[] { 1, 2, 3 }, _depo.Sorgular.Select(x => x.Sayfa));
-        Assert.All(_depo.Sorgular, x => Assert.Equal((200, "ali"), (x.Boyut, x.Filtre.KullaniciAdi)));
+        Assert.EndsWith(";satir-450", satirlar[1]);
+        Assert.EndsWith(";satir-1", satirlar[450]);
+        Assert.Equal(new long?[] { null, 251, 51 }, _depo.CsvSorgulari.Select(x => x.SonId));
+        Assert.All(_depo.CsvSorgulari, x => Assert.Equal("ali", x.Filtre.KullaniciAdi));
+        Assert.Empty(_depo.Sorgular);
+        Assert.Empty(_kaydedici.ReceivedCalls());
+
+        await _servis.AktarimTamamlandiAsync(450);
+
         await _kaydedici.Received(1).KaydetVeYazAsync(
             Arg.Is<DenetimOlayi>(o => o.Islem == DenetimIslemi.CsvAktarildi && o.YeniDeger == "Satır=450" && o.Ozet.Contains("450")),
             Arg.Any<CancellationToken>());
@@ -118,6 +139,7 @@ public class DenetimCsvTests
             () => _servis.DenetimKayitlariniCsvAktarAsync(new DenetimSorgusu(new DateTime(2026, 2, 2), new DateTime(2026, 2, 1)), akis));
         Assert.Equal(0, akis.Length);
         Assert.Empty(_depo.Sorgular);
+        Assert.Empty(_depo.CsvSorgulari);
         Assert.Empty(_kaydedici.ReceivedCalls());
     }
 
@@ -135,11 +157,12 @@ public class DenetimCsvTests
     public async Task Siparis_csv_aktarimi_satir_sayisiyla_kaydedilir()
     {
         var siparisler = Substitute.For<ISiparisService>();
-        siparisler.SiparisGecmisiSayfaGetirAsync(Arg.Any<SiparisGecmisiSorgusu>(), Arg.Any<CancellationToken>())
-            .Returns(new SayfaliSonucDto<SiparisDto>([new SiparisDto(1, 2, "Kalem", 3, Zaman), new SiparisDto(2, 2, "Kalem", 1, Zaman)], 2, 1, 200));
+        siparisler.SiparisCsvSayfasiGetirAsync(Arg.Any<SiparisGecmisiSorgusu>(), null, Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns([new SiparisDto(2, 2, "Kalem", 3, Zaman), new SiparisDto(1, 2, "Kalem", 1, Zaman)]);
         var servis = new SiparisDisaAktarimService(siparisler, _kaydedici);
 
-        await servis.SiparisleriCsvAktarAsync(new SiparisGecmisiSorgusu(), new MemoryStream());
+        var sayi = await servis.SiparisleriCsvAktarAsync(new SiparisGecmisiSorgusu(), new MemoryStream());
+        await servis.AktarimTamamlandiAsync(sayi);
 
         await _kaydedici.Received(1).KaydetVeYazAsync(
             Arg.Is<DenetimOlayi>(o => o.Islem == DenetimIslemi.CsvAktarildi && o.VarlikTuru == "Sipariş" && o.YeniDeger == "Satır=2"),

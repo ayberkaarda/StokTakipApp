@@ -39,7 +39,8 @@ public class DenetimYetkiTestleri
 
         kapsam.OturumAc(admin);
         await servis.YetkiKontrolEtAsync();
-        await servis.DenetimKayitlariniCsvAktarAsync(new DenetimSorgusu(), akis);
+        var sayi = await servis.DenetimKayitlariniCsvAktarAsync(new DenetimSorgusu(), akis);
+        await servis.AktarimTamamlandiAsync(sayi);
         var sonuc = await servis.DenetimKayitlariniGetirAsync(new DenetimSorgusu());
         Assert.Equal(DenetimIslemi.CsvAktarildi, Assert.Single(sonuc.Ogeler).Islem);
     }

@@ -20,11 +20,50 @@ public sealed class SiparisRepository(StokTakipDbContext context) : ISiparisRepo
     public async Task<SayfaliSonuc<Siparis>> GetGecmisSayfaAsync(
         SiparisFiltresi filtre, int sayfa, int sayfaBoyutu, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(filtre);
         ArgumentOutOfRangeException.ThrowIfLessThan(sayfa, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(sayfaBoyutu, 1);
 
-        var sorgu = context.Siparisler.AsTracking().AsQueryable();
+        var sorgu = Filtrele(context.Siparisler.AsTracking(), filtre);
+        var toplamKayit = await sorgu.CountAsync(cancellationToken);
+        var atlanacak = (long)(sayfa - 1) * sayfaBoyutu;
+        IReadOnlyList<Siparis> ogeler = atlanacak >= toplamKayit
+            ? Array.Empty<Siparis>()
+            : await sorgu.Include(x => x.Urun)
+                .OrderByDescending(x => x.Tarih).ThenByDescending(x => x.SiparisId)
+                .Skip((int)atlanacak).Take(sayfaBoyutu).ToListAsync(cancellationToken);
+
+        return new SayfaliSonuc<Siparis>(ogeler, toplamKayit, sayfa, sayfaBoyutu);
+    }
+
+    public async Task<IReadOnlyList<Siparis>> CsvSayfasiGetirAsync(
+        SiparisFiltresi filtre, int? sonSiparisId, int adet, CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(adet, 1);
+
+        var sorgu = Filtrele(context.Siparisler.AsNoTracking(), filtre);
+        if (sonSiparisId is { } son)
+            sorgu = sorgu.Where(x => x.SiparisId < son);
+
+        return await sorgu.Include(x => x.Urun)
+            .OrderByDescending(x => x.SiparisId)
+            .Take(adet).ToListAsync(cancellationToken);
+    }
+
+    public async Task<(int SiparisSayisi, long ToplamAdet)> GetOzetAsync(CancellationToken cancellationToken = default)
+    {
+        var ozet = await context.Siparisler
+            .GroupBy(_ => 1)
+            .Select(g => new { Sayi = g.Count(), Toplam = g.Sum(x => (long)x.Adet) })
+            .SingleOrDefaultAsync(cancellationToken);
+        return ozet is null ? (0, 0L) : (ozet.Sayi, ozet.Toplam);
+    }
+
+    public async Task AddAsync(Siparis siparis, CancellationToken cancellationToken = default)
+        => await context.Siparisler.AddAsync(siparis, cancellationToken);
+
+    private static IQueryable<Siparis> Filtrele(IQueryable<Siparis> sorgu, SiparisFiltresi filtre)
+    {
+        ArgumentNullException.ThrowIfNull(filtre);
         if (filtre.Baslangic is { } baslangic)
             sorgu = sorgu.Where(x => x.Tarih >= baslangic);
 
@@ -44,26 +83,6 @@ public sealed class SiparisRepository(StokTakipDbContext context) : ISiparisRepo
             sorgu = sorgu.Where(x => x.Urun != null && EF.Functions.Like(x.Urun.UrunAdi, desen, "~"));
         }
 
-        var toplamKayit = await sorgu.CountAsync(cancellationToken);
-        var atlanacak = (long)(sayfa - 1) * sayfaBoyutu;
-        IReadOnlyList<Siparis> ogeler = atlanacak >= toplamKayit
-            ? Array.Empty<Siparis>()
-            : await sorgu.Include(x => x.Urun)
-                .OrderByDescending(x => x.Tarih).ThenByDescending(x => x.SiparisId)
-                .Skip((int)atlanacak).Take(sayfaBoyutu).ToListAsync(cancellationToken);
-
-        return new SayfaliSonuc<Siparis>(ogeler, toplamKayit, sayfa, sayfaBoyutu);
+        return sorgu;
     }
-
-    public async Task<(int SiparisSayisi, long ToplamAdet)> GetOzetAsync(CancellationToken cancellationToken = default)
-    {
-        var ozet = await context.Siparisler
-            .GroupBy(_ => 1)
-            .Select(g => new { Sayi = g.Count(), Toplam = g.Sum(x => (long)x.Adet) })
-            .SingleOrDefaultAsync(cancellationToken);
-        return ozet is null ? (0, 0L) : (ozet.Sayi, ozet.Toplam);
-    }
-
-    public async Task AddAsync(Siparis siparis, CancellationToken cancellationToken = default)
-        => await context.Siparisler.AddAsync(siparis, cancellationToken);
 }

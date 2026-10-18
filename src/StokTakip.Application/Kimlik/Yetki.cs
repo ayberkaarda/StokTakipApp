@@ -57,6 +57,16 @@ public interface IYetkiDenetcisi
             return false;
         }
     }
+
+    /// <summary>Önbelleği atlayarak güncel kayıtla yeniden doğrular (uzun işlemlerin sonunda).</summary>
+    /// <exception cref="YetkisizIslemException"/>
+    Task YenidenDogrulaAsync(Yetki yetki, CancellationToken cancellationToken = default) => GerektirAsync(yetki, cancellationToken);
+
+    /// <summary>İşlem bitince çağrılır: oturum işlem sırasında değiştiyse sonucu geçersiz sayar.</summary>
+    /// <exception cref="YetkisizIslemException"/>
+    void IslemSonuDogrula()
+    {
+    }
 }
 
 /// <summary>Denetim yapmaz; servislerin oturumdan bağımsız kullanıldığı testler ve araçlar içindir.</summary>
@@ -68,40 +78,100 @@ public sealed class YetkiDenetimiYok : IYetkiDenetcisi
 }
 
 /// <summary>
-/// Üretim denetçisi: oturum yoksa her işlemi reddeder. Hassas işlemlerde kullanıcının güncel kaydını okur;
-/// kullanıcı yok, pasif ya da rolü yetmiyorsa oturumu kapatır ve reddeder. Scoped kaydedilir.
+/// Üretim denetçisi: oturum yoksa her işlemi reddeder. Her yetkide (okuma ve Operator işlemleri dahil) kullanıcının güncel
+/// kaydını okur; kayıt yok, pasif ya da rolü yetmiyorsa oturumu kapatır ve reddeder. Kayıt bir işlemde bir kez okunur.
 /// </summary>
-public sealed class OturumYetkiDenetcisi(IOturumBaglami oturum, IKullaniciRepository kullanicilar) : IYetkiDenetcisi
+public sealed class OturumYetkiDenetcisi : IYetkiDenetcisi
 {
-    private readonly IOturumBaglami _oturum = oturum ?? throw new ArgumentNullException(nameof(oturum));
-    private readonly IKullaniciRepository _kullanicilar = kullanicilar ?? throw new ArgumentNullException(nameof(kullanicilar));
+    private readonly IOturumBaglami _oturum;
+    private readonly IKullaniciRepository _kullanicilar;
+    private readonly IslemOturumu _islem;
+    private readonly bool _kapsamBoyu;
+    private KullaniciYetkiBilgisi? _dogrulanan;
+
+    /// <summary>Her çağrı ayrı bir işlemdir: oturum o çağrının başında sabitlenir ve kayıt yeniden okunur.</summary>
+    public OturumYetkiDenetcisi(IOturumBaglami oturum, IKullaniciRepository kullanicilar)
+        : this(oturum, kullanicilar, new IslemOturumu(oturum ?? throw new ArgumentNullException(nameof(oturum))), kapsamBoyu: false)
+    {
+    }
+
+    /// <summary>
+    /// Kapsam (DI scope) tek işlemdir: oturum ilk denetimde sabitlenir, kayıt bir kez okunur; oturum sonradan değişirse
+    /// her denetim reddedilir. Aynı <paramref name="islem"/> denetim kaydedicisiyle paylaşılmalıdır.
+    /// </summary>
+    public OturumYetkiDenetcisi(IOturumBaglami oturum, IKullaniciRepository kullanicilar, IslemOturumu islem)
+        : this(oturum, kullanicilar, islem, kapsamBoyu: true)
+    {
+    }
+
+    private OturumYetkiDenetcisi(IOturumBaglami oturum, IKullaniciRepository kullanicilar, IslemOturumu islem, bool kapsamBoyu)
+    {
+        _oturum = oturum ?? throw new ArgumentNullException(nameof(oturum));
+        _kullanicilar = kullanicilar ?? throw new ArgumentNullException(nameof(kullanicilar));
+        _islem = islem ?? throw new ArgumentNullException(nameof(islem));
+        _kapsamBoyu = kapsamBoyu;
+    }
 
     public Task GerektirAsync(Yetki yetki, CancellationToken cancellationToken = default)
-    {
-        var gerekliRol = YetkiKurallari.GerekliRol(yetki);
-        if (!YetkiKurallari.HassasMi(yetki))
-        {
-            _oturum.YetkiGerektir(gerekliRol);
-            return Task.CompletedTask;
-        }
+        => DogrulaAsync(YetkiKurallari.GerekliRol(yetki), Anlik(), yenidenOku: false, cancellationToken);
 
-        return GuncelYetkiDogrulama.DogrulaAsync(_oturum, _kullanicilar, gerekliRol, cancellationToken);
-    }
+    public Task YenidenDogrulaAsync(Yetki yetki, CancellationToken cancellationToken = default)
+        => DogrulaAsync(YetkiKurallari.GerekliRol(yetki), _islem.Sabitle(), yenidenOku: true, cancellationToken);
+
+    public void IslemSonuDogrula() => _islem.NesilDegismediyseDevam();
 
     public async Task<bool> YetkiliMiAsync(Yetki yetki, CancellationToken cancellationToken = default)
     {
         var gerekliRol = YetkiKurallari.GerekliRol(yetki);
-        var kullanici = _oturum.MevcutKullanici ?? throw new YetkisizIslemException(YetkisizIslemException.OturumGerekliMesaji);
+        var anlik = Anlik();
+        var kullanici = anlik.Kullanici ?? throw new YetkisizIslemException(YetkisizIslemException.OturumGerekliMesaji);
         if (kullanici.Rol < gerekliRol)
         {
             return false;
         }
 
-        if (YetkiKurallari.HassasMi(yetki))
+        await DogrulaAsync(gerekliRol, anlik, yenidenOku: false, cancellationToken);
+        return true;
+    }
+
+    private OturumAnligi Anlik()
+    {
+        if (!_kapsamBoyu)
         {
-            await GuncelYetkiDogrulama.DogrulaAsync(_oturum, _kullanicilar, gerekliRol, cancellationToken);
+            _islem.Birak();
+            _dogrulanan = null;
         }
 
-        return true;
+        return _islem.Sabitle();
+    }
+
+    private async Task DogrulaAsync(KullaniciRolu gerekliRol, OturumAnligi anlik, bool yenidenOku, CancellationToken cancellationToken)
+    {
+        var kullanici = anlik.Kullanici ?? throw new YetkisizIslemException(YetkisizIslemException.OturumGerekliMesaji);
+        _islem.NesilDegismediyseDevam();
+        if (kullanici.Rol < gerekliRol)
+        {
+            throw new YetkisizIslemException();
+        }
+
+        if (_dogrulanan is null || yenidenOku)
+        {
+            _dogrulanan = null;
+            var guncel = await _kullanicilar.YetkiBilgisiGetirAsync(kullanici.KullaniciId, cancellationToken);
+            _islem.NesilDegismediyseDevam();
+            if (guncel is not { Aktif: true })
+            {
+                _oturum.OturumuKapat(anlik.Nesil);
+                throw new YetkisizIslemException();
+            }
+
+            _dogrulanan = guncel;
+        }
+
+        if (_dogrulanan.Rol < gerekliRol)
+        {
+            _oturum.OturumuKapat(anlik.Nesil);
+            throw new YetkisizIslemException();
+        }
     }
 }
