@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             this.pnlHeader = new System.Windows.Forms.Panel();
             this.picLogo = new System.Windows.Forms.PictureBox();
             this.lblBaslik = new System.Windows.Forms.Label();
@@ -61,6 +62,9 @@
             this.lblSiparisAdet = new System.Windows.Forms.Label();
             this.txtSiparisAdet = new System.Windows.Forms.TextBox();
             this.btnSiparisVer = new System.Windows.Forms.Button();
+            this.lblDurum = new System.Windows.Forms.Label();
+            this.bsUrunler = new System.Windows.Forms.BindingSource(this.components);
+            this.bsSiparisUrunleri = new System.Windows.Forms.BindingSource(this.components);
             this.pnlHeader.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.picLogo)).BeginInit();
             this.tlpGovde.SuspendLayout();
@@ -70,10 +74,13 @@
             this.tlpSag.SuspendLayout();
             this.pnlUrunIslemleri.SuspendLayout();
             this.pnlSiparis.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.bsUrunler)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.bsSiparisUrunleri)).BeginInit();
             this.SuspendLayout();
             //
             // pnlHeader
             //
+            this.pnlHeader.Controls.Add(this.lblDurum);
             this.pnlHeader.Controls.Add(this.btnSiparisGecmisi);
             this.pnlHeader.Controls.Add(this.lblAltBaslik);
             this.pnlHeader.Controls.Add(this.lblBaslik);
@@ -126,6 +133,18 @@
             this.btnSiparisGecmisi.Text = "Sipariş Geçmişi";
             this.btnSiparisGecmisi.UseVisualStyleBackColor = true;
             this.btnSiparisGecmisi.Click += new System.EventHandler(this.btnSiparisGecmisi_Click);
+            //
+            // lblDurum
+            //
+            this.lblDurum.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.lblDurum.Location = new System.Drawing.Point(796, 14);
+            this.lblDurum.Name = "lblDurum";
+            this.lblDurum.Size = new System.Drawing.Size(148, 36);
+            this.lblDurum.TabIndex = 4;
+            this.lblDurum.Tag = "hint";
+            this.lblDurum.Text = "Yükleniyor…";
+            this.lblDurum.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            this.lblDurum.Visible = false;
             //
             // tlpGovde
             //
@@ -185,6 +204,7 @@
             this.dgvUrunler.AllowUserToDeleteRows = false;
             this.dgvUrunler.AllowUserToResizeRows = false;
             this.dgvUrunler.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+            this.dgvUrunler.DataSource = this.bsUrunler;
             this.dgvUrunler.Dock = System.Windows.Forms.DockStyle.Fill;
             this.dgvUrunler.Location = new System.Drawing.Point(16, 68);
             this.dgvUrunler.MultiSelect = false;
@@ -405,6 +425,9 @@
             //
             // cmbUrunler
             //
+            this.cmbUrunler.DataSource = this.bsSiparisUrunleri;
+            this.cmbUrunler.DisplayMember = "UrunAdi";
+            this.cmbUrunler.ValueMember = "UrunId";
             this.cmbUrunler.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.cmbUrunler.FormattingEnabled = true;
             this.cmbUrunler.Location = new System.Drawing.Point(16, 90);
@@ -466,6 +489,8 @@
             this.pnlUrunIslemleri.PerformLayout();
             this.pnlSiparis.ResumeLayout(false);
             this.pnlSiparis.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.bsUrunler)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.bsSiparisUrunleri)).EndInit();
             this.ResumeLayout(false);
 
         }
@@ -505,5 +530,8 @@
         private System.Windows.Forms.Label lblSiparisAdet;
         private System.Windows.Forms.TextBox txtSiparisAdet;
         private System.Windows.Forms.Button btnSiparisVer;
+        private System.Windows.Forms.Label lblDurum;
+        private System.Windows.Forms.BindingSource bsUrunler;
+        private System.Windows.Forms.BindingSource bsSiparisUrunleri;
     }
 }

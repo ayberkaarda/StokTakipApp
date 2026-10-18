@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,7 +22,12 @@ namespace StokTakip.Presenters
         private readonly ILogger<SiparisGecmisiPresenter> _logger;
         private readonly CancellationTokenSource _kapanis = new CancellationTokenSource();
         private ISiparisGecmisiView _view;
-        private bool _mesgul;
+        private CancellationTokenSource _sorguIptal;
+        private int _sorguNo;
+        private int _sayfa = 1;
+        private int _toplamSayfa;
+        private bool _ozetBekliyor = true;
+        private bool _siliniyor;
 
         public SiparisGecmisiPresenter(IServiceScopeFactory scopeFactory, IStokDegisiklikBildirimi bildirim)
             : this(scopeFactory, bildirim, NullLogger<SiparisGecmisiPresenter>.Instance)
@@ -47,26 +51,53 @@ namespace StokTakip.Presenters
             }
 
             _view = view ?? throw new ArgumentNullException(nameof(view));
-            _view.Yuklendi += async (s, e) => await CalistirAsync(SiparisleriYukleAsync);
-            _view.SiparisSilIstendi += async (s, e) => await CalistirAsync(SiparisSilAsync);
-            _view.Kapandi += (s, e) => _kapanis.Cancel();
+            _view.Yuklendi += async (s, e) => await HataGostererekYukleAsync();
+            _view.FiltreDegisti += async (s, e) =>
+            {
+                _sayfa = 1;
+                await HataGostererekYukleAsync();
+            };
+            _view.OncekiSayfaIstendi += async (s, e) =>
+            {
+                if (_sayfa > 1)
+                {
+                    _sayfa--;
+                    await HataGostererekYukleAsync();
+                }
+            };
+            _view.SonrakiSayfaIstendi += async (s, e) =>
+            {
+                if (_sayfa < _toplamSayfa)
+                {
+                    _sayfa++;
+                    await HataGostererekYukleAsync();
+                }
+            };
+            _view.SiparisSilIstendi += async (s, e) => await SiparisSilAsync();
+            _view.Kapandi += (s, e) =>
+            {
+                _bildirim.SiparislerDegisti -= SiparislerDegisti;
+                _kapanis.Cancel();
+            };
+            _bildirim.SiparislerDegisti += SiparislerDegisti;
         }
 
-        private async Task CalistirAsync(Func<Task> islem)
+        private async void SiparislerDegisti(object sender, EventArgs e)
         {
-            if (_mesgul || Kapandi)
+            if (ReferenceEquals(sender, this))
             {
                 return;
             }
 
-            _mesgul = true;
-            _view.Mesgul = true;
+            _ozetBekliyor = true;
+            await HataGostererekYukleAsync();
+        }
+
+        private async Task HataGostererekYukleAsync()
+        {
             try
             {
-                await islem();
-            }
-            catch (OperationCanceledException) when (_kapanis.IsCancellationRequested)
-            {
+                await YukleAsync();
             }
             catch (Exception ex)
             {
@@ -76,34 +107,100 @@ namespace StokTakip.Presenters
                     HataMesaji.Goster(_view, ex);
                 }
             }
+        }
+
+        // Her yeni sorgu bir öncekini iptal eder; yalnızca en son sorgunun sonucu gösterilir.
+        private async Task<bool> YukleAsync()
+        {
+            if (Kapandi)
+            {
+                return false;
+            }
+
+            _sorguIptal?.Cancel();
+            var iptal = CancellationTokenSource.CreateLinkedTokenSource(_kapanis.Token);
+            _sorguIptal = iptal;
+            int sorguNo = ++_sorguNo;
+            bool ozetDahil = _ozetBekliyor;
+            _view.Yukleniyor = true;
+
+            try
+            {
+                SiparisGecmisiSorgusu sorgu = SorguOlustur();
+                CancellationToken token = iptal.Token;
+                (SayfaliSonucDto<SiparisDto> sonuc, SiparisOzetiDto ozet) = await _scopeFactory
+                    .CalistirAsync<ISiparisService, (SayfaliSonucDto<SiparisDto>, SiparisOzetiDto)>(async s =>
+                    {
+                        SayfaliSonucDto<SiparisDto> sayfa = await s.SiparisGecmisiSayfaGetirAsync(sorgu, token);
+                        if (sayfa.Ogeler.Count == 0 && sayfa.ToplamKayit > 0 && sayfa.Sayfa > sayfa.ToplamSayfa)
+                        {
+                            sayfa = await s.SiparisGecmisiSayfaGetirAsync(sorgu with { Sayfa = sayfa.ToplamSayfa }, token);
+                        }
+
+                        SiparisOzetiDto o = ozetDahil ? await s.SiparisOzetiGetirAsync(token) : null;
+                        return (sayfa, o);
+                    });
+
+                if (iptal.IsCancellationRequested || Kapandi)
+                {
+                    return false;
+                }
+
+                _sayfa = sonuc.Sayfa;
+                _toplamSayfa = sonuc.ToplamSayfa;
+                _view.SayfayiGoster(sonuc);
+                if (ozet != null)
+                {
+                    _ozetBekliyor = false;
+                    _view.OzetiGoster(ozet);
+                }
+
+                return true;
+            }
+            catch (Exception) when (iptal.IsCancellationRequested)
+            {
+                return false;
+            }
             finally
             {
-                _mesgul = false;
-                if (!Kapandi)
+                if (ReferenceEquals(_sorguIptal, iptal))
                 {
-                    _view.Mesgul = false;
+                    _sorguIptal = null;
+                }
+
+                iptal.Dispose();
+                if (sorguNo == _sorguNo && !Kapandi)
+                {
+                    _view.Yukleniyor = false;
                 }
             }
         }
 
-        private async Task SiparisleriYukleAsync()
+        private SiparisGecmisiSorgusu SorguOlustur()
         {
-            CancellationToken iptal = _kapanis.Token;
-            (IReadOnlyList<SiparisDto> siparisler, SiparisOzetiDto ozet) = await _scopeFactory
-                .CalistirAsync<ISiparisService, (IReadOnlyList<SiparisDto>, SiparisOzetiDto)>(
-                    async s => (await s.SiparisGecmisiniGetirAsync(iptal), await s.SiparisOzetiGetirAsync(iptal)));
-
-            if (Kapandi)
+            string arama = _view.AramaMetni?.Trim();
+            DateTime? baslangic = _view.Baslangic?.Date;
+            DateTime? bitis = _view.Bitis?.Date;
+            if (baslangic > bitis)
             {
-                return;
+                (baslangic, bitis) = (bitis, baslangic);
             }
 
-            _view.SiparisleriGoster(siparisler);
-            _view.OzetiGoster(ozet);
+            return new SiparisGecmisiSorgusu(
+                baslangic,
+                bitis,
+                string.IsNullOrEmpty(arama) ? null : arama,
+                _sayfa,
+                _view.SayfaBoyutu);
         }
 
         private async Task SiparisSilAsync()
         {
+            if (_siliniyor || Kapandi)
+            {
+                return;
+            }
+
             int? siparisId = _view.SeciliSiparisId;
             if (siparisId == null)
             {
@@ -111,28 +208,57 @@ namespace StokTakip.Presenters
                 return;
             }
 
-            // Silme başladıysa form kapansa da tamamlanmalı; iptal yalnızca okuma sorgularına uygulanır.
-            await _scopeFactory.CalistirAsync<ISiparisService>(s => s.SiparisSilAsync(siparisId.Value));
-            _bildirim.Bildir();
-
+            _siliniyor = true;
+            _view.Mesgul = true;
             try
             {
-                await SiparisleriYukleAsync();
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException || !_kapanis.IsCancellationRequested)
-            {
-                HataMesaji.Logla(_logger, ex);
-                if (!Kapandi)
+                try
                 {
-                    _view.UyariGoster("Sipariş silindi ve stok güncellendi, ancak liste yenilenemedi.\n\n" + HataMesaji.Olustur(ex));
+                    // Silme başladıysa form kapansa da tamamlanmalı; iptal yalnızca okuma sorgularına uygulanır.
+                    await _scopeFactory.CalistirAsync<ISiparisService>(s => s.SiparisSilAsync(siparisId.Value));
+                }
+                catch (Exception ex)
+                {
+                    HataMesaji.Logla(_logger, ex);
+                    if (!Kapandi)
+                    {
+                        HataMesaji.Goster(_view, ex);
+                    }
+
+                    return;
                 }
 
-                return;
-            }
+                _bildirim.Bildir();
+                _bildirim.SiparislerDegistiBildir(this);
 
-            if (!Kapandi)
+                try
+                {
+                    _ozetBekliyor = true;
+                    await YukleAsync();
+                }
+                catch (Exception ex)
+                {
+                    HataMesaji.Logla(_logger, ex);
+                    if (!Kapandi)
+                    {
+                        _view.UyariGoster("Sipariş silindi ve stok güncellendi, ancak liste yenilenemedi.\n\n" + HataMesaji.Olustur(ex));
+                    }
+
+                    return;
+                }
+
+                if (!Kapandi)
+                {
+                    _view.BilgiGoster("Sipariş silindi ve stok güncellendi.");
+                }
+            }
+            finally
             {
-                _view.BilgiGoster("Sipariş silindi ve stok güncellendi.");
+                _siliniyor = false;
+                if (!Kapandi)
+                {
+                    _view.Mesgul = false;
+                }
             }
         }
     }
