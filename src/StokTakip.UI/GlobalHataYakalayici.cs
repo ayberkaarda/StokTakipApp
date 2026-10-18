@@ -26,14 +26,14 @@ namespace StokTakip
 
         private static void ArayuzHatasi(object sender, ThreadExceptionEventArgs e)
         {
-            Gunlukcu.Error(e.Exception, "Arayüz iş parçacığında yakalanmayan hata.");
+            Gunlukcu.Error(Gunluk.Ayrinti(e.Exception), "Arayüz iş parçacığında yakalanmayan hata: {Hata}", Gunluk.HataOzeti(e.Exception));
             Goster(HataMesaji.Olustur(e.Exception) + GunlukNotu);
         }
 
         private static void YakalanmayanHata(object sender, UnhandledExceptionEventArgs e)
         {
             var ex = e.ExceptionObject as Exception;
-            Gunlukcu.Fatal(ex, "Yakalanmayan hata. Uygulama sonlanıyor: {Sonlaniyor}", e.IsTerminating);
+            Gunlukcu.Fatal(Gunluk.Ayrinti(ex), "Yakalanmayan hata: {Hata}. Uygulama sonlanıyor: {Sonlaniyor}", Gunluk.HataOzeti(ex), e.IsTerminating);
             if (e.IsTerminating)
             {
                 Log.CloseAndFlush();
@@ -50,7 +50,7 @@ namespace StokTakip
 
         private static void GozlemlenmeyenGorevHatasi(object sender, UnobservedTaskExceptionEventArgs e)
         {
-            Gunlukcu.Error(e.Exception, "Gözlemlenmeyen arka plan görevi hatası.");
+            Gunlukcu.Error(Gunluk.Ayrinti(e.Exception), "Gözlemlenmeyen arka plan görevi hatası: {Hata}", Gunluk.HataOzeti(e.Exception.InnerException ?? e.Exception));
             e.SetObserved();
 
             Exception ic = e.Exception.InnerException ?? e.Exception;

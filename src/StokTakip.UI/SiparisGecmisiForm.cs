@@ -59,6 +59,7 @@ namespace StokTakip
         public event EventHandler SiparisSilIstendi;
         public event EventHandler Kapandi;
         public event EventHandler FiltreDegisti;
+        public event EventHandler AramaDegisiyor;
         public event EventHandler OncekiSayfaIstendi;
         public event EventHandler SonrakiSayfaIstendi;
 
@@ -281,6 +282,11 @@ namespace StokTakip
             }
 
             tmrArama.Stop();
+            if (_hazir && !Kapali)
+            {
+                AramaDegisiyor?.Invoke(this, EventArgs.Empty);
+            }
+
             tmrArama.Start();
         }
 
@@ -362,6 +368,25 @@ namespace StokTakip
 
             FiltreDegistiBildir();
             txtArama.Focus();
+        }
+
+        // Sayfalama grupları kendi içinde satır kırar; Sil de sığmazsa alt satıra iner.
+        // Layout olayı kenetli kontroller yerleşmeden önce geldiği için alt çubuk yüksekliği aynı geçişte güncellenir.
+        private void pnlListe_Layout(object sender, LayoutEventArgs e)
+        {
+            int genislik = pnlListe.DisplayRectangle.Width - tlpAlt.Padding.Horizontal;
+            int gerekli = flpSayfaGezinme.PreferredSize.Width + flpSayfaGezinme.Margin.Horizontal
+                + btnSiparisSil.Width + btnSiparisSil.Margin.Left;
+            bool altSatir = genislik < gerekli;
+            var hedef = altSatir ? new TableLayoutPanelCellPosition(0, 1) : new TableLayoutPanelCellPosition(1, 0);
+            if (tlpAlt.GetPositionFromControl(btnSiparisSil) == hedef)
+            {
+                return;
+            }
+
+            int bosluk = btnSiparisSil.Margin.Left;
+            btnSiparisSil.Margin = new Padding(bosluk, altSatir ? bosluk / 2 : 0, 0, 0);
+            tlpAlt.SetCellPosition(btnSiparisSil, hedef);
         }
 
         private void dgvSiparisGecmisi_Resize(object sender, EventArgs e)

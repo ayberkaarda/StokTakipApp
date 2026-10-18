@@ -62,7 +62,7 @@ namespace StokTakip
             }
             catch (Exception ex)
             {
-                Gunlukcu.Fatal(ex, "Uygulama başlatılamadı.");
+                Gunlukcu.Fatal(Gunluk.Ayrinti(ex), "Uygulama başlatılamadı: {Hata}", Gunluk.HataOzeti(ex));
                 MesajKutusu.Hata(null, HataMesaji.Olustur(ex) + "\n\nAyrıntılar günlük dosyasına kaydedildi.");
             }
             finally
@@ -120,7 +120,7 @@ namespace StokTakip
                 }
                 catch (Exception ex)
                 {
-                    Gunlukcu.Error(ex, "Açılışta veritabanına erişilemedi.");
+                    Gunlukcu.Error(Gunluk.Ayrinti(ex), "Açılışta veritabanına erişilemedi: {Hata}", Gunluk.HataOzeti(ex));
                     if (!TekrarDenensinMi(HataMesaji.Olustur(ex)))
                     {
                         Gunlukcu.Information("Veritabanı erişim hatası nedeniyle uygulama kapatıldı.");
