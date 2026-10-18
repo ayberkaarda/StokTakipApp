@@ -1,11 +1,35 @@
 ﻿using System;
 using System.Data;
+using System.IO;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Configuration;
 using System.Collections.Generic;
 
 public class DatabaseHelper
 {
-    private string connectionString = "Server=MONSTER\\SQLEXPRESS;Database=StokTakip;Trusted_Connection=True;";
+    private readonly string connectionString;
+
+    public DatabaseHelper()
+    {
+        string settingsPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+        if (!File.Exists(settingsPath))
+        {
+            throw new FileNotFoundException(
+                "Veritabanı yapılandırma dosyası appsettings.json bulunamadı. Dosyanın uygulama dizininde bulunduğundan emin olun.",
+                settingsPath);
+        }
+
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
+            .Build();
+        connectionString = configuration.GetConnectionString("StokTakip");
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
+                "appsettings.json dosyasında ConnectionStrings:StokTakip bağlantı dizesi eksik veya boş.");
+        }
+    }
 
     // SELECT sorguları için
     public DataTable ExecuteQuery(string query)
