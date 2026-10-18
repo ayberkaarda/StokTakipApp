@@ -14,6 +14,9 @@ public interface ISiparisRepository
     /// <summary>Silinmemiş siparişler, Tarih'e göre yeniden eskiye sıralı.</summary>
     Task<IReadOnlyList<Siparis>> GetGecmisAsync(CancellationToken cancellationToken = default);
 
+    Task<SayfaliSonuc<Siparis>> GetGecmisSayfaAsync(
+        SiparisFiltresi filtre, int sayfa, int sayfaBoyutu, CancellationToken cancellationToken = default);
+
     Task<(int SiparisSayisi, long ToplamAdet)> GetOzetAsync(CancellationToken cancellationToken = default);
 
     Task AddAsync(Siparis siparis, CancellationToken cancellationToken = default);

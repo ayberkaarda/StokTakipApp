@@ -16,6 +16,9 @@ public interface ISiparisService
     /// <summary>Silinmemiş siparişler, ürün adıyla birlikte, Tarih'e göre yeniden eskiye.</summary>
     Task<IReadOnlyList<SiparisDto>> SiparisGecmisiniGetirAsync(CancellationToken cancellationToken = default);
 
+    Task<SayfaliSonucDto<SiparisDto>> SiparisGecmisiSayfaGetirAsync(
+        SiparisGecmisiSorgusu sorgu, CancellationToken cancellationToken = default);
+
     Task<SiparisOzetiDto> SiparisOzetiGetirAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
