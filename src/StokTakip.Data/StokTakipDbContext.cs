@@ -9,6 +9,7 @@ public sealed class StokTakipDbContext(DbContextOptions<StokTakipDbContext> opti
     public DbSet<Urun> Urunler => Set<Urun>();
     public DbSet<Siparis> Siparisler => Set<Siparis>();
     public DbSet<Kategori> Kategoriler => Set<Kategori>();
+    public DbSet<Kullanici> Kullanicilar => Set<Kullanici>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -65,5 +66,21 @@ public sealed class StokTakipDbContext(DbContextOptions<StokTakipDbContext> opti
             .OnDelete(DeleteBehavior.Restrict);
         siparis.HasIndex(x => x.UrunId);
         siparis.HasIndex(x => x.Tarih);
+
+        var kullanici = modelBuilder.Entity<Kullanici>();
+        kullanici.ToTable("Kullanicilar", t =>
+        {
+            t.HasCheckConstraint("CK_Kullanicilar_KullaniciAdi", "[KullaniciAdi] <> ''");
+            t.HasCheckConstraint("CK_Kullanicilar_Rol", "[Rol] IN (0, 1)");
+            t.HasCheckConstraint("CK_Kullanicilar_Iterasyon", "[Iterasyon] > 0");
+            t.HasCheckConstraint("CK_Kullanicilar_BasarisizDenemeSayisi", "[BasarisizDenemeSayisi] >= 0");
+        });
+        kullanici.HasKey(x => x.KullaniciId);
+        kullanici.Property(x => x.KullaniciId).HasColumnName("KullaniciID");
+        kullanici.Property(x => x.KullaniciAdi).IsRequired().HasMaxLength(Kullanici.KullaniciAdiMaksimumUzunluk);
+        kullanici.Property(x => x.ParolaHash).IsRequired().HasMaxLength(64);
+        kullanici.Property(x => x.ParolaTuzu).IsRequired().HasMaxLength(32);
+        kullanici.Property(x => x.RowVersion).IsRowVersion();
+        kullanici.HasIndex(x => x.KullaniciAdi).IsUnique();
     }
 }
