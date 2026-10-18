@@ -14,8 +14,11 @@ namespace StokTakip
         [STAThread]
         static void Main()
         {
+            // Yüksek DPI ekranlarda net görüntü için monitör başına DPI ölçekleme.
+            Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+            Application.SetDefaultFont(Theme.BodyFont);
             Application.Run(new Form1());
         }
     }
