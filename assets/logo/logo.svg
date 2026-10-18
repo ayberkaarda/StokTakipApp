@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="st-title">
+  <title id="st-title">Stok Takip</title>
+  <defs>
+    <linearGradient id="st-tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3B82F6"/>
+      <stop offset="1" stop-color="#1D4ED8"/>
+    </linearGradient>
+    <!-- Koli: beyaz gövde + kapak çizgisi -->
+    <g id="st-crate">
+      <rect width="44" height="44" rx="8" fill="#FFFFFF"/>
+      <rect y="11" width="44" height="5" fill="#BFDBFE"/>
+    </g>
+  </defs>
+
+  <!-- Zemin: tema birincil mavisi -->
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#st-tile)"/>
+
+  <!-- Yükselen raf: koliler çubuk grafik gibi dizilir -->
+  <use href="#st-crate" x="52" y="167"/>
+  <use href="#st-crate" x="106" y="167"/>
+  <use href="#st-crate" x="106" y="113"/>
+  <use href="#st-crate" x="160" y="167"/>
+  <use href="#st-crate" x="160" y="113"/>
+
+  <!-- Yerine konan son koli: stok girişi -->
+  <use href="#st-crate" x="160" y="47" transform="rotate(-10 182 69)"/>
+</svg>
