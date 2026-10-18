@@ -17,6 +17,7 @@ public static class DependencyInjection
         services.AddScoped<IKategoriRepository, KategoriRepository>();
         services.AddScoped<ISiparisRepository, SiparisRepository>();
         services.AddScoped<IRaporRepository, RaporRepository>();
+        services.AddScoped<IKullaniciRepository, KullaniciRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         return services;
     }

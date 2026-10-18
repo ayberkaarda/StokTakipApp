@@ -44,6 +44,70 @@ namespace StokTakip.Data.Migrations
                     b.ToTable("Kategoriler", (string)null);
                 });
 
+            modelBuilder.Entity("StokTakip.Domain.Entities.Kullanici", b =>
+                {
+                    b.Property<int>("KullaniciId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("KullaniciID");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("KullaniciId"));
+
+                    b.Property<bool>("Aktif")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("BasarisizDenemeSayisi")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Iterasyon")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("KilitBitis")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("KullaniciAdi")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<byte[]>("ParolaHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varbinary(64)");
+
+                    b.Property<byte[]>("ParolaTuzu")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varbinary(32)");
+
+                    b.Property<int>("Rol")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("SonGirisTarihi")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("KullaniciId");
+
+                    b.HasIndex("KullaniciAdi")
+                        .IsUnique();
+
+                    b.ToTable("Kullanicilar", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Kullanicilar_BasarisizDenemeSayisi", "[BasarisizDenemeSayisi] >= 0");
+
+                            t.HasCheckConstraint("CK_Kullanicilar_Iterasyon", "[Iterasyon] > 0");
+
+                            t.HasCheckConstraint("CK_Kullanicilar_KullaniciAdi", "[KullaniciAdi] <> ''");
+
+                            t.HasCheckConstraint("CK_Kullanicilar_Rol", "[Rol] IN (0, 1)");
+                        });
+                });
+
             modelBuilder.Entity("StokTakip.Domain.Entities.Siparis", b =>
                 {
                     b.Property<int>("SiparisId")
