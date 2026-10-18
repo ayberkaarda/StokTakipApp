@@ -247,6 +247,7 @@ namespace StokTakip
                     panel.BackColor = Palette.Surface;
                     panel.Paint += PaintCardBorder;
                     panel.Resize += (s, e) => ((Control)s).Invalidate();
+                    panel.Scroll += (s, e) => ((Control)s).Invalidate();
                     break;
             }
         }

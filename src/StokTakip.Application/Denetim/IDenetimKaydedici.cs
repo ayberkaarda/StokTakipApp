@@ -15,6 +15,12 @@ public sealed record DenetimOlayi(
 {
     /// <summary>Verilirse oturumdaki kullanıcı yerine bu kişi kaydedilir (giriş/çıkış olayları).</summary>
     public DenetimAktoru? Aktor { get; init; }
+
+    /// <summary>
+    /// İşlemin kendisi tamamlandıktan sonra yazılan kayıt (ör. CSV dosyası taşındı): oturum arada değişse de işlemi
+    /// başlatan aktörle yazılır, iptal edilmez.
+    /// </summary>
+    public bool IslemSonrasi { get; init; }
 }
 
 public sealed record DenetimAktoru(int? KullaniciId, string KullaniciAdi);

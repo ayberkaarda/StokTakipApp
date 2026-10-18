@@ -19,6 +19,14 @@ public interface ISiparisService
     Task<SayfaliSonucDto<SiparisDto>> SiparisGecmisiSayfaGetirAsync(
         SiparisGecmisiSorgusu sorgu, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Dışa aktarım sayfası: filtreye uyan, <paramref name="sonSiparisId"/>'den küçük siparişler SiparisId azalan sırada
+    /// (sorgudaki sayfa/sayfa boyutu yok sayılır). Ekranda gösterilen geçmişin tarih sırası değişmez.
+    /// </summary>
+    /// <param name="adet">1..1000 aralığına sıkıştırılır.</param>
+    Task<IReadOnlyList<SiparisDto>> SiparisCsvSayfasiGetirAsync(
+        SiparisGecmisiSorgusu sorgu, int? sonSiparisId, int adet, CancellationToken cancellationToken = default);
+
     Task<SiparisOzetiDto> SiparisOzetiGetirAsync(CancellationToken cancellationToken = default);
 
     /// <summary>

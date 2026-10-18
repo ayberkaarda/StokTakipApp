@@ -16,10 +16,35 @@ public sealed class DenetimRepository(StokTakipDbContext context) : IDenetimRepo
     public async Task<SayfaliSonuc<DenetimKaydi>> SayfaGetirAsync(
         DenetimFiltresi filtre, int sayfa, int sayfaBoyutu, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(filtre);
         ArgumentOutOfRangeException.ThrowIfLessThan(sayfa, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(sayfaBoyutu, 1);
 
+        var sorgu = Filtrele(filtre);
+        var toplamKayit = await sorgu.CountAsync(cancellationToken);
+        var atlanacak = (long)(sayfa - 1) * sayfaBoyutu;
+        IReadOnlyList<DenetimKaydi> ogeler = atlanacak >= toplamKayit
+            ? Array.Empty<DenetimKaydi>()
+            : await sorgu.OrderByDescending(x => x.Zaman).ThenByDescending(x => x.DenetimId)
+                .Skip((int)atlanacak).Take(sayfaBoyutu).ToListAsync(cancellationToken);
+
+        return new SayfaliSonuc<DenetimKaydi>(ogeler, toplamKayit, sayfa, sayfaBoyutu);
+    }
+
+    public async Task<IReadOnlyList<DenetimKaydi>> CsvSayfasiGetirAsync(
+        DenetimFiltresi filtre, long? sonDenetimId, int adet, CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(adet, 1);
+
+        var sorgu = Filtrele(filtre);
+        if (sonDenetimId is { } son)
+            sorgu = sorgu.Where(x => x.DenetimId < son);
+
+        return await sorgu.OrderByDescending(x => x.DenetimId).Take(adet).ToListAsync(cancellationToken);
+    }
+
+    private IQueryable<DenetimKaydi> Filtrele(DenetimFiltresi filtre)
+    {
+        ArgumentNullException.ThrowIfNull(filtre);
         var sorgu = context.DenetimKayitlari.AsNoTracking();
         if (filtre.BaslangicUtc is { } baslangic)
             sorgu = sorgu.Where(x => x.Zaman >= baslangic);
@@ -42,14 +67,7 @@ public sealed class DenetimRepository(StokTakipDbContext context) : IDenetimRepo
             sorgu = sorgu.Where(x => x.VarlikAdi != null && EF.Functions.Like(x.VarlikAdi, desen, "~"));
         }
 
-        var toplamKayit = await sorgu.CountAsync(cancellationToken);
-        var atlanacak = (long)(sayfa - 1) * sayfaBoyutu;
-        IReadOnlyList<DenetimKaydi> ogeler = atlanacak >= toplamKayit
-            ? Array.Empty<DenetimKaydi>()
-            : await sorgu.OrderByDescending(x => x.Zaman).ThenByDescending(x => x.DenetimId)
-                .Skip((int)atlanacak).Take(sayfaBoyutu).ToListAsync(cancellationToken);
-
-        return new SayfaliSonuc<DenetimKaydi>(ogeler, toplamKayit, sayfa, sayfaBoyutu);
+        return sorgu;
     }
 
     private static string LikeDeseni(string aranan) =>

@@ -35,6 +35,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="StokTakip.UI.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\StokTakip.Domain\StokTakip.Domain.csproj" />
     <ProjectReference Include="..\StokTakip.Application\StokTakip.Application.csproj" />
     <ProjectReference Include="..\StokTakip.Data\StokTakip.Data.csproj" />

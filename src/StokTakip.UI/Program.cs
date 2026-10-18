@@ -45,7 +45,9 @@ namespace StokTakip
                 Gunlukcu.Information("Uygulama başlatılıyor. Sürüm {Surum}", typeof(Program).Assembly.GetName().Version);
                 if (gunlukAyarHatasi != null)
                 {
-                    Gunlukcu.Warning(gunlukAyarHatasi, "Serilog ayarları okunamadı, varsayılan günlük ayarları kullanılıyor.");
+                    Gunlukcu.Warning(
+                        Gunluk.Ayrinti(gunlukAyarHatasi), "Serilog ayarları okunamadı, varsayılan günlük ayarları kullanılıyor: {Hata}",
+                        Gunluk.HataOzeti(gunlukAyarHatasi));
                 }
 
                 string connectionString = BaglantiDizesiniAl(configuration);
@@ -115,7 +117,7 @@ namespace StokTakip
                 catch (Exception ex)
                 {
                     configuration = null;
-                    Gunlukcu.Error(ex, "Uygulama ayarları okunamadı.");
+                    Gunlukcu.Error(Gunluk.Ayrinti(ex), "Uygulama ayarları okunamadı: {Hata}", Gunluk.HataOzeti(ex));
 
                     // Yalnızca UygulamaAyarlari'nın kendi açıklayıcı mesajları gösterilir; diğer hatalar dosya yolu içerebilir.
                     string ayrinti = ex is FileNotFoundException || ex is InvalidDataException || ex is InvalidOperationException

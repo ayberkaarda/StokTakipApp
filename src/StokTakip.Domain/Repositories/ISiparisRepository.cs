@@ -17,6 +17,13 @@ public interface ISiparisRepository
     Task<SayfaliSonuc<Siparis>> GetGecmisSayfaAsync(
         SiparisFiltresi filtre, int sayfa, int sayfaBoyutu, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Dışa aktarım için anahtar tabanlı sayfa: filtreye uyan, <paramref name="sonSiparisId"/>'den küçük siparişler,
+    /// SiparisId'ye göre azalan sırada (izlenmez). Sayfalar arasında eklenen/silinen kayıtlar tekrar ya da atlama yaratmaz.
+    /// </summary>
+    Task<IReadOnlyList<Siparis>> CsvSayfasiGetirAsync(
+        SiparisFiltresi filtre, int? sonSiparisId, int adet, CancellationToken cancellationToken = default);
+
     Task<(int SiparisSayisi, long ToplamAdet)> GetOzetAsync(CancellationToken cancellationToken = default);
 
     Task AddAsync(Siparis siparis, CancellationToken cancellationToken = default);

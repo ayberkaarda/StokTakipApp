@@ -112,6 +112,21 @@ public sealed class SiparisService : ISiparisService
     public async Task<SayfaliSonucDto<SiparisDto>> SiparisGecmisiSayfaGetirAsync(
         SiparisGecmisiSorgusu sorgu, CancellationToken cancellationToken = default)
     {
+        var sonuc = await _siparisRepository.GetGecmisSayfaAsync(
+            FiltreOlustur(sorgu), Math.Max(1, sorgu.Sayfa), Math.Clamp(sorgu.SayfaBoyutu, 1, 200), cancellationToken);
+        return sonuc.ToDto(s => s.ToDto());
+    }
+
+    public async Task<IReadOnlyList<SiparisDto>> SiparisCsvSayfasiGetirAsync(
+        SiparisGecmisiSorgusu sorgu, int? sonSiparisId, int adet, CancellationToken cancellationToken = default)
+    {
+        var siparisler = await _siparisRepository.CsvSayfasiGetirAsync(
+            FiltreOlustur(sorgu), sonSiparisId, Math.Clamp(adet, 1, 1000), cancellationToken);
+        return siparisler.Select(s => s.ToDto()).ToList();
+    }
+
+    private static SiparisFiltresi FiltreOlustur(SiparisGecmisiSorgusu sorgu)
+    {
         ArgumentNullException.ThrowIfNull(sorgu);
         if (sorgu.Baslangic.HasValue && sorgu.Bitis.HasValue && sorgu.Baslangic.Value.Date > sorgu.Bitis.Value.Date)
             throw new GecersizGirdiException("Başlangıç tarihi bitiş tarihinden sonra olamaz.", nameof(sorgu.Baslangic));
@@ -120,10 +135,7 @@ public sealed class SiparisService : ISiparisService
         if (urunAdi?.Length > 100)
             urunAdi = urunAdi[..100];
 
-        var filtre = new SiparisFiltresi(sorgu.Baslangic, sorgu.Bitis, urunAdi, sorgu.UrunId);
-        var sonuc = await _siparisRepository.GetGecmisSayfaAsync(
-            filtre, Math.Max(1, sorgu.Sayfa), Math.Clamp(sorgu.SayfaBoyutu, 1, 200), cancellationToken);
-        return sonuc.ToDto(s => s.ToDto());
+        return new SiparisFiltresi(sorgu.Baslangic, sorgu.Bitis, urunAdi, sorgu.UrunId);
     }
 
     public async Task<SiparisOzetiDto> SiparisOzetiGetirAsync(CancellationToken cancellationToken = default)
@@ -194,7 +206,8 @@ public sealed class SiparisService : ISiparisService
             }
             catch (Exception rollbackHatasi)
             {
-                _logger.LogWarning(rollbackHatasi, "Transaction geri alınamadı.");
+                _logger.LogWarning(
+                    IslemGunlugu.Ayrinti(rollbackHatasi), "Transaction geri alınamadı. Hata={Hata}", IslemGunlugu.HataOzeti(rollbackHatasi));
             }
 
             try
@@ -203,7 +216,8 @@ public sealed class SiparisService : ISiparisService
             }
             catch (Exception kapatmaHatasi)
             {
-                _logger.LogWarning(kapatmaHatasi, "Transaction kapatılamadı.");
+                _logger.LogWarning(
+                    IslemGunlugu.Ayrinti(kapatmaHatasi), "Transaction kapatılamadı. Hata={Hata}", IslemGunlugu.HataOzeti(kapatmaHatasi));
             }
 
             throw;

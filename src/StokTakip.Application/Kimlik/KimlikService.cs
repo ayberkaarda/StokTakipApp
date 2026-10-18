@@ -258,7 +258,7 @@ public sealed class KimlikService : IKimlikService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Başarısız giriş denetim kaydına yazılamadı.");
+            _logger.LogWarning(IslemGunlugu.Ayrinti(ex), "Başarısız giriş denetim kaydına yazılamadı. Hata={Hata}", IslemGunlugu.HataOzeti(ex));
         }
     }
 
@@ -289,7 +289,8 @@ public sealed class KimlikService : IKimlikService
     {
         try
         {
-            var cagiran = await AdminDogrulaAsync(cancellationToken);
+            var anlik = await AdminDogrulaAsync(cancellationToken);
+            var cagiran = anlik.Kullanici!;
             var ad = Kullanici.KullaniciAdiDogrula(kullaniciAdi);
             RolDogrula(rol);
             ParolaPolitikasi.Dogrula(parola, ad);
@@ -308,8 +309,12 @@ public sealed class KimlikService : IKimlikService
                     new DenetimOlayi(
                         DenetimIslemi.KullaniciOlusturuldu, DenetimVarlikTurleri.Kullanici,
                         $"{kullanici.KullaniciAdi} kullanıcısı oluşturuldu (rol: {rol})", kullanici.KullaniciId, kullanici.KullaniciAdi,
-                        YeniDeger: $"Rol={rol}"),
+                        YeniDeger: $"Rol={rol}")
+                    {
+                        Aktor = Aktor(cagiran),
+                    },
                     cancellationToken);
+                GuncelYetkiDogrulama.NesilDegismediyseDevam(_oturum, anlik);
                 await transaction.CommitAsync(cancellationToken);
             }
 
@@ -328,8 +333,8 @@ public sealed class KimlikService : IKimlikService
     {
         try
         {
-            var oturumdaki = await GuncelYetkiDogrulama.DogrulaAsync(_oturum, _kullaniciRepository, KullaniciRolu.Operator, cancellationToken);
-            var kullanici = await KullaniciyiBulAsync(oturumdaki.KullaniciId, cancellationToken);
+            var anlik = await GuncelYetkiDogrulama.AnlikDogrulaAsync(_oturum, _kullaniciRepository, KullaniciRolu.Operator, cancellationToken);
+            var kullanici = await KullaniciyiBulAsync(anlik.Kullanici!.KullaniciId, cancellationToken);
             ParolaPolitikasi.Dogrula(yeniParola, kullanici.KullaniciAdi);
 
             var simdi = SimdiUtc;
@@ -351,7 +356,11 @@ public sealed class KimlikService : IKimlikService
             kullanici.BasariliGirisKaydet(simdi);
             _denetim.Kaydet(new DenetimOlayi(
                 DenetimIslemi.ParolaDegisti, DenetimVarlikTurleri.Kullanici, $"{kullanici.KullaniciAdi} parolasını değiştirdi",
-                kullanici.KullaniciId, kullanici.KullaniciAdi));
+                kullanici.KullaniciId, kullanici.KullaniciAdi)
+            {
+                Aktor = Aktor(anlik.Kullanici),
+            });
+            GuncelYetkiDogrulama.NesilDegismediyseDevam(_oturum, anlik);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             _logger.LogInformation("Parola değiştirildi. KullaniciId={KullaniciId}", kullanici.KullaniciId);
         }
@@ -374,7 +383,8 @@ public sealed class KimlikService : IKimlikService
         {
             RolDogrula(yeniRol);
             await using var transaction = await _unitOfWork.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-            var cagiran = await AdminDogrulaAsync(cancellationToken);
+            var anlik = await AdminDogrulaAsync(cancellationToken);
+            var cagiran = anlik.Kullanici!;
             var hedef = await KullaniciyiBulAsync(kullaniciId, cancellationToken);
             if (hedef is { Aktif: true, Rol: KullaniciRolu.Admin } && yeniRol != KullaniciRolu.Admin)
             {
@@ -385,7 +395,11 @@ public sealed class KimlikService : IKimlikService
             hedef.RolAta(yeniRol);
             _denetim.Kaydet(new DenetimOlayi(
                 DenetimIslemi.RolDegisti, DenetimVarlikTurleri.Kullanici, $"{hedef.KullaniciAdi} rolü {eskiRol} → {yeniRol}",
-                hedef.KullaniciId, hedef.KullaniciAdi, eskiRol.ToString(), yeniRol.ToString()));
+                hedef.KullaniciId, hedef.KullaniciAdi, eskiRol.ToString(), yeniRol.ToString())
+            {
+                Aktor = Aktor(cagiran),
+            });
+            GuncelYetkiDogrulama.NesilDegismediyseDevam(_oturum, anlik);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             OturumuEsitle(hedef);
@@ -405,7 +419,8 @@ public sealed class KimlikService : IKimlikService
         try
         {
             await using var transaction = await _unitOfWork.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-            var cagiran = await AdminDogrulaAsync(cancellationToken);
+            var anlik = await AdminDogrulaAsync(cancellationToken);
+            var cagiran = anlik.Kullanici!;
             var hedef = await KullaniciyiBulAsync(kullaniciId, cancellationToken);
             if (!aktif && hedef is { Aktif: true, Rol: KullaniciRolu.Admin })
             {
@@ -416,7 +431,11 @@ public sealed class KimlikService : IKimlikService
             hedef.AktiflikAyarla(aktif);
             _denetim.Kaydet(new DenetimOlayi(
                 DenetimIslemi.AktiflikDegisti, DenetimVarlikTurleri.Kullanici, $"{hedef.KullaniciAdi} hesabı {eski} → {AktiflikMetni(aktif)}",
-                hedef.KullaniciId, hedef.KullaniciAdi, eski, AktiflikMetni(aktif)));
+                hedef.KullaniciId, hedef.KullaniciAdi, eski, AktiflikMetni(aktif))
+            {
+                Aktor = Aktor(cagiran),
+            });
+            GuncelYetkiDogrulama.NesilDegismediyseDevam(_oturum, anlik);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             OturumuEsitle(hedef);
@@ -439,13 +458,19 @@ public sealed class KimlikService : IKimlikService
         }
         catch (Exception kontrolHatasi)
         {
-            _logger.LogWarning(kontrolHatasi, "İlk kurulum hatası sonrası kullanıcı denetimi yapılamadı.");
+            _logger.LogWarning(
+                IslemGunlugu.Ayrinti(kontrolHatasi), "İlk kurulum hatası sonrası kullanıcı denetimi yapılamadı. Hata={Hata}",
+                IslemGunlugu.HataOzeti(kontrolHatasi));
             return false;
         }
     }
 
-    private Task<OturumKullanicisi> AdminDogrulaAsync(CancellationToken cancellationToken)
-        => GuncelYetkiDogrulama.DogrulaAsync(_oturum, _kullaniciRepository, KullaniciRolu.Admin, cancellationToken);
+    /// <returns>İşlemin aktörü ve oturum nesli; işlem kaydedilmeden önce nesil yeniden denetlenir.</returns>
+    private Task<OturumAnligi> AdminDogrulaAsync(CancellationToken cancellationToken)
+        => GuncelYetkiDogrulama.AnlikDogrulaAsync(_oturum, _kullaniciRepository, KullaniciRolu.Admin, cancellationToken);
+
+    private static DenetimAktoru Aktor(OturumKullanicisi? k)
+        => k is null ? new DenetimAktoru(null, DenetimKaydi.SistemKullaniciAdi) : new DenetimAktoru(k.KullaniciId, k.KullaniciAdi);
 
     private OperationCanceledException GirisIptal(int kullaniciId)
     {

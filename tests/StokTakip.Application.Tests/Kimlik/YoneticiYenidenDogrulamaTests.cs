@@ -245,16 +245,17 @@ public class YoneticiYenidenDogrulamaTests
     }
 
     [Fact]
-    public async Task Hassas_olmayan_islem_veritabanina_gitmez()
+    public async Task Hassas_olmayan_islem_de_her_islemde_veritabanindan_dogrulanir()
     {
         var depo = Substitute.For<IKullaniciRepository>();
+        depo.YetkiBilgisiGetirAsync(1, Arg.Any<CancellationToken>()).Returns(new KullaniciYetkiBilgisi(1, KullaniciRolu.Operator, true));
         _oturum.OturumAc(new OturumKullanicisi(1, "ali", KullaniciRolu.Operator));
         var stok = new YetkiDenetimliStokService(_stok, new OturumYetkiDenetcisi(_oturum, depo));
 
         await stok.UrunleriListeleAsync();
         await stok.StokGuncelleAsync(1, 5);
 
-        await depo.DidNotReceiveWithAnyArgs().YetkiBilgisiGetirAsync(default, default);
+        await depo.Received(2).YetkiBilgisiGetirAsync(1, Arg.Any<CancellationToken>());
     }
 
     [Fact]
