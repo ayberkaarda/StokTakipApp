@@ -20,6 +20,7 @@ namespace StokTakip
         {
             
             InitializeComponent();
+            Theme.Apply(this);
             this.anaForm = form1;
             db = new DatabaseHelper(); // bağlantı sınıfı
 
@@ -45,8 +46,9 @@ ORDER BY s.Tarih DESC";
         {
             SiparisleriYukle();
 
-            lblToplamSiparis.Text = "Toplam Sipariş: " + dgvSiparisGecmisi.Rows.Count;
-            lblToplamAdet.Text = "Toplam Adet: " + dgvSiparisGecmisi.Rows.Cast<DataGridViewRow>()
+            // Başlıklar ("Toplam Sipariş" / "Toplam Adet") tasarımcıdaki ayrı etiketlerde durur.
+            lblToplamSiparis.Text = dgvSiparisGecmisi.Rows.Count.ToString();
+            lblToplamAdet.Text = dgvSiparisGecmisi.Rows.Cast<DataGridViewRow>()
                 .Sum(r => Convert.ToInt32(r.Cells["Adet"].Value)).ToString();
 
         }

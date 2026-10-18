@@ -17,6 +17,8 @@ namespace StokTakip
         public Form1()
         {
             InitializeComponent();
+            Theme.Apply(this);
+            Theme.EnableStockHighlight(dgvUrunler, "Stok");
         }
 
         private void Form1_Load(object sender, EventArgs e)
