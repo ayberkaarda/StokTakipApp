@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using StokTakip.Application.Kimlik;
 using StokTakip.Data.Tests.Altyapi;
 using StokTakip.Domain;
 using StokTakip.Domain.Entities;
@@ -20,11 +21,19 @@ public class KimlikTestleri
         return await context.Kullanicilar.AsNoTracking().SingleAsync(x => x.KullaniciAdi == ad);
     }
 
+    private static OturumBaglami AdminOturumu(int adminId)
+    {
+        var oturum = new OturumBaglami();
+        oturum.OturumAc(new OturumKullanicisi(adminId, "yonetici", KullaniciRolu.Admin));
+        return oturum;
+    }
+
     private async Task<int> AdminVeOperatorOlusturAsync(KimlikTestVeritabani db)
     {
         using var kapsam = new KimlikKapsami(db, _zaman);
         var admin = await kapsam.Kimlik.IlkAdminOlusturAsync("yonetici", Parola);
-        await kapsam.Kimlik.KullaniciOlusturAsync(admin.KullaniciId, "ali", Parola, KullaniciRolu.Operator);
+        kapsam.Oturum.OturumAc(new(admin.KullaniciId, admin.KullaniciAdi, admin.Rol));
+        await kapsam.Kimlik.KullaniciOlusturAsync("ali", Parola, KullaniciRolu.Operator);
         return admin.KullaniciId;
     }
 
@@ -74,10 +83,10 @@ public class KimlikTestleri
         using var db = new KimlikTestVeritabani();
         var adminId = await AdminVeOperatorOlusturAsync(db);
 
-        using (var kapsam = new KimlikKapsami(db, _zaman))
+        using (var kapsam = new KimlikKapsami(db, _zaman, AdminOturumu(adminId)))
         {
             var hata = await Assert.ThrowsAsync<GecersizGirdiException>(
-                () => kapsam.Kimlik.KullaniciOlusturAsync(adminId, " ALI ", Parola, KullaniciRolu.Admin));
+                () => kapsam.Kimlik.KullaniciOlusturAsync(" ALI ", Parola, KullaniciRolu.Admin));
             Assert.Equal("'ali' kullanıcı adı zaten kullanılıyor.", hata.Message);
         }
 
@@ -122,7 +131,7 @@ public class KimlikTestleri
 
         using (var kapsam = new KimlikKapsami(db, _zaman))
         {
-            await Assert.ThrowsAsync<HesapKilitliException>(() => kapsam.Kimlik.GirisYapAsync("ali", Parola));
+            await Assert.ThrowsAsync<GecersizKimlikBilgisiException>(() => kapsam.Kimlik.GirisYapAsync("ali", Parola));
         }
 
         Assert.Equal(5, (await OkuAsync(db, "ali")).BasarisizDenemeSayisi);
@@ -198,8 +207,7 @@ public class KimlikTestleri
         baslat.Set();
         var hatalar = await Task.WhenAll(gorevler);
 
-        Assert.Equal(5, hatalar.Count(h => h is GecersizKimlikBilgisiException));
-        Assert.Equal(3, hatalar.Count(h => h is HesapKilitliException));
+        Assert.All(hatalar, h => Assert.IsType<GecersizKimlikBilgisiException>(h));
         var kayit = await OkuAsync(db, "ali");
         Assert.Equal(5, kayit.BasarisizDenemeSayisi);
         Assert.Equal(T0.AddMinutes(15), kayit.KilitBitis);
@@ -211,26 +219,26 @@ public class KimlikTestleri
         using var db = new KimlikTestVeritabani();
         var adminId = await AdminVeOperatorOlusturAsync(db);
 
-        using (var kapsam = new KimlikKapsami(db, _zaman))
+        using (var kapsam = new KimlikKapsami(db, _zaman, AdminOturumu(adminId)))
         {
             await Assert.ThrowsAsync<GecersizIslemException>(
-                () => kapsam.Kimlik.RolDegistirAsync(adminId, adminId, KullaniciRolu.Operator));
+                () => kapsam.Kimlik.RolDegistirAsync(adminId, KullaniciRolu.Operator));
         }
 
-        using (var kapsam = new KimlikKapsami(db, _zaman))
+        using (var kapsam = new KimlikKapsami(db, _zaman, AdminOturumu(adminId)))
         {
-            await Assert.ThrowsAsync<GecersizIslemException>(() => kapsam.Kimlik.AktiflikDegistirAsync(adminId, adminId, false));
+            await Assert.ThrowsAsync<GecersizIslemException>(() => kapsam.Kimlik.AktiflikDegistirAsync(adminId, false));
         }
 
         var ali = await OkuAsync(db, "ali");
-        using (var kapsam = new KimlikKapsami(db, _zaman))
+        using (var kapsam = new KimlikKapsami(db, _zaman, AdminOturumu(adminId)))
         {
-            await kapsam.Kimlik.RolDegistirAsync(adminId, ali.KullaniciId, KullaniciRolu.Admin);
+            await kapsam.Kimlik.RolDegistirAsync(ali.KullaniciId, KullaniciRolu.Admin);
         }
 
-        using (var kapsam = new KimlikKapsami(db, _zaman))
+        using (var kapsam = new KimlikKapsami(db, _zaman, AdminOturumu(adminId)))
         {
-            await kapsam.Kimlik.AktiflikDegistirAsync(adminId, adminId, false);
+            await kapsam.Kimlik.AktiflikDegistirAsync(adminId, false);
         }
 
         Assert.False((await OkuAsync(db, "yonetici")).Aktif);
@@ -269,6 +277,9 @@ public class KimlikTestleri
         }
 
         public Task<Kullanici?> GetByIdAsync(int kullaniciId, CancellationToken cancellationToken = default) => ic.GetByIdAsync(kullaniciId, cancellationToken);
+
+        public Task<KullaniciYetkiBilgisi?> YetkiBilgisiGetirAsync(int kullaniciId, CancellationToken cancellationToken = default)
+            => ic.YetkiBilgisiGetirAsync(kullaniciId, cancellationToken);
 
         public Task<IReadOnlyList<Kullanici>> GetAllAsync(CancellationToken cancellationToken = default) => ic.GetAllAsync(cancellationToken);
 

@@ -10,6 +10,9 @@ public interface IKullaniciRepository
 {
     Task<Kullanici?> GetByIdAsync(int kullaniciId, CancellationToken cancellationToken = default);
 
+    /// <summary>İzlenmeyen, her çağrıda veritabanından okunan güncel rol ve aktiflik; yetki yeniden doğrulaması içindir.</summary>
+    Task<KullaniciYetkiBilgisi?> YetkiBilgisiGetirAsync(int kullaniciId, CancellationToken cancellationToken = default);
+
     Task<Kullanici?> GetByKullaniciAdiAsync(string kullaniciAdi, CancellationToken cancellationToken = default);
 
     /// <summary>Tüm kullanıcılar, kullanıcı adına göre sıralı.</summary>

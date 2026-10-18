@@ -5,8 +5,10 @@ using StokTakip.Application.Dtos;
 using StokTakip.Application.Kimlik;
 using StokTakip.Application.Raporlama;
 using StokTakip.Application.Services;
+using StokTakip.Data.Repositories;
 using StokTakip.Data.Tests.Altyapi;
 using StokTakip.Domain;
+using StokTakip.Domain.Entities;
 using StokTakip.Domain.Exceptions;
 
 namespace StokTakip.Data.Tests;
@@ -65,7 +67,12 @@ public class YetkiUctanUcaTestleri
     {
         using var db = new TestVeritabani();
         var oturum = new OturumBaglami();
-        var denetci = new OturumYetkiDenetcisi(oturum);
+        await using var kullaniciContext = db.ContextOlustur();
+        kullaniciContext.Kullanicilar.Add(new Kullanici("yonetici", [1], [1], 1, KullaniciRolu.Admin));
+        await kullaniciContext.SaveChangesAsync();
+        kullaniciContext.Kullanicilar.Add(new Kullanici("ali", [1], [1], 1, KullaniciRolu.Operator));
+        await kullaniciContext.SaveChangesAsync();
+        var denetci = new OturumYetkiDenetcisi(oturum, new KullaniciRepository(kullaniciContext));
 
         using var kapsam = new KategoriliServisKapsami(db);
         using var siparisKapsami = new ServisKapsami(db);

@@ -10,13 +10,13 @@ internal static class IslemGunlugu
     {
         if (ex is EszamanlilikException)
         {
-            logger.LogWarning("Eşzamanlılık çakışması. Islem={Islem}", islem);
+            logger.LogWarning("Eşzamanlılık çakışması. Islem={Islem}", LogTemizle.Metin(islem));
         }
         else
         {
             logger.LogWarning(
                 "İş kuralı ihlali. Islem={Islem}, Tur={HataTuru}, Mesaj={Mesaj}",
-                islem, ex.GetType().Name, ex.Message);
+                LogTemizle.Metin(islem), ex.GetType().Name, LogTemizle.Metin(ex.Message));
         }
 
         return false;

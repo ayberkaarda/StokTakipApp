@@ -14,6 +14,9 @@ public sealed class SiparisDisaAktarimService : ISiparisDisaAktarimService
         _siparisService = siparisService ?? throw new ArgumentNullException(nameof(siparisService));
     }
 
+    /// <remarks>Denetimsiz iç servis; yetkiyi dekoratör denetler.</remarks>
+    public Task YetkiKontrolEtAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
     public async Task SiparisleriCsvAktarAsync(
         SiparisGecmisiSorgusu filtre, Stream hedef, CancellationToken cancellationToken = default)
     {
