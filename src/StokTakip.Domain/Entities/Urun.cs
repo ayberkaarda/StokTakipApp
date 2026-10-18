@@ -4,6 +4,8 @@ namespace StokTakip.Domain.Entities;
 
 public class Urun
 {
+    public const int UrunAdiMaksimumUzunluk = 200;
+
     private Urun()
     {
         UrunAdi = string.Empty;
@@ -67,6 +69,11 @@ public class Urun
         if (string.IsNullOrWhiteSpace(urunAdi))
         {
             throw new GecersizGirdiException("Ürün adı boş olamaz.", nameof(UrunAdi));
+        }
+
+        if (urunAdi.Length > UrunAdiMaksimumUzunluk)
+        {
+            throw new GecersizGirdiException($"Ürün adı en fazla {UrunAdiMaksimumUzunluk} karakter olabilir.", nameof(UrunAdi));
         }
 
         return urunAdi.Trim();

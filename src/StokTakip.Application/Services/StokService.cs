@@ -63,7 +63,7 @@ public sealed class StokService : IStokService
         }
     }
 
-    public async Task<UrunDto> UrunGuncelleAsync(UrunGuncelleIstegi istek, CancellationToken cancellationToken = default)
+    public async Task<UrunDto> UrunGuncelleAsync(UrunGuncelleIstegi istek, CancellationToken cancellationToken = default, byte[]? beklenenRowVersion = null)
     {
         ArgumentNullException.ThrowIfNull(istek);
 
@@ -74,6 +74,11 @@ public sealed class StokService : IStokService
             StokDogrula(istek.Stok);
 
             var urun = await UrunuBulAsync(istek.UrunId, cancellationToken);
+            if (beklenenRowVersion is not null)
+            {
+                _urunRepository.SetBeklenenRowVersion(urun, beklenenRowVersion);
+            }
+
             urun.AdiDegistir(istek.UrunAdi);
             urun.StokAyarla(istek.Stok);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -86,13 +91,18 @@ public sealed class StokService : IStokService
         }
     }
 
-    public async Task<UrunDto> StokGuncelleAsync(int urunId, int yeniStok, CancellationToken cancellationToken = default)
+    public async Task<UrunDto> StokGuncelleAsync(int urunId, int yeniStok, CancellationToken cancellationToken = default, byte[]? beklenenRowVersion = null)
     {
         try
         {
             StokDogrula(yeniStok);
 
             var urun = await UrunuBulAsync(urunId, cancellationToken);
+            if (beklenenRowVersion is not null)
+            {
+                _urunRepository.SetBeklenenRowVersion(urun, beklenenRowVersion);
+            }
+
             urun.StokAyarla(yeniStok);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             _logger.LogInformation("Stok güncellendi. UrunId={UrunId}, YeniStok={YeniStok}", urunId, yeniStok);
@@ -104,7 +114,7 @@ public sealed class StokService : IStokService
         }
     }
 
-    public async Task UrunSilAsync(int urunId, CancellationToken cancellationToken = default)
+    public async Task UrunSilAsync(int urunId, CancellationToken cancellationToken = default, byte[]? beklenenRowVersion = null)
     {
         try
         {
@@ -113,6 +123,11 @@ public sealed class StokService : IStokService
             if (await _urunRepository.HasSiparisAsync(urunId, cancellationToken))
             {
                 throw new GecersizIslemException($"'{urun.UrunAdi}' ürününe ait sipariş kaydı bulunduğu için ürün silinemez.");
+            }
+
+            if (beklenenRowVersion is not null)
+            {
+                _urunRepository.SetBeklenenRowVersion(urun, beklenenRowVersion);
             }
 
             _urunRepository.Remove(urun);
@@ -136,6 +151,11 @@ public sealed class StokService : IStokService
         if (string.IsNullOrWhiteSpace(urunAdi))
         {
             throw new GecersizGirdiException("Ürün adı boş olamaz.", nameof(Urun.UrunAdi));
+        }
+
+        if (urunAdi.Length > Urun.UrunAdiMaksimumUzunluk)
+        {
+            throw new GecersizGirdiException($"Ürün adı en fazla {Urun.UrunAdiMaksimumUzunluk} karakter olabilir.", nameof(Urun.UrunAdi));
         }
     }
 

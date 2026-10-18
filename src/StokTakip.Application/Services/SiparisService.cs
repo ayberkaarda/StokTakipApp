@@ -89,7 +89,8 @@ public sealed class SiparisService : ISiparisService
     public async Task<SiparisOzetiDto> SiparisOzetiGetirAsync(CancellationToken cancellationToken = default)
     {
         var ozet = await _siparisRepository.GetOzetAsync(cancellationToken);
-        return new SiparisOzetiDto(ozet.SiparisSayisi, checked((int)ozet.ToplamAdet));
+        // UI uyumluluğu için int toplamı taşma yerine üst sınıra doyurulur.
+        return new SiparisOzetiDto(ozet.SiparisSayisi, (int)Math.Min(ozet.ToplamAdet, int.MaxValue));
     }
 
     public async Task SiparisSilAsync(int siparisId, CancellationToken cancellationToken = default)

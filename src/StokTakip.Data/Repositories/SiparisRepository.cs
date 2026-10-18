@@ -17,9 +17,11 @@ public sealed class SiparisRepository(StokTakipDbContext context) : ISiparisRepo
 
     public async Task<(int SiparisSayisi, long ToplamAdet)> GetOzetAsync(CancellationToken cancellationToken = default)
     {
-        var siparisSayisi = await context.Siparisler.CountAsync(cancellationToken);
-        var toplamAdet = await context.Siparisler.SumAsync(x => (long?)x.Adet, cancellationToken) ?? 0L;
-        return (siparisSayisi, toplamAdet);
+        var ozet = await context.Siparisler
+            .GroupBy(_ => 1)
+            .Select(g => new { Sayi = g.Count(), Toplam = g.Sum(x => (long)x.Adet) })
+            .SingleOrDefaultAsync(cancellationToken);
+        return ozet is null ? (0, 0L) : (ozet.Sayi, ozet.Toplam);
     }
 
     public async Task AddAsync(Siparis siparis, CancellationToken cancellationToken = default)
