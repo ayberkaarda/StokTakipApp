@@ -268,4 +268,4 @@ dotnet test StokTakip.sln
 
 ## 🧳 Lisans
 
-Bu proje eğitim amaçlıdır. İstenildiği gibi geliştirilebilir ve kullanılabilir.
+Bu proje MIT lisansı ile lisanslanmıştır. Ayrıntılar için [LICENSE](LICENSE) dosyasına bakın.
