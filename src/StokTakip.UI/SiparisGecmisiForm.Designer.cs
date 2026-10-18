@@ -33,6 +33,9 @@
             this.picLogo = new System.Windows.Forms.PictureBox();
             this.lblBaslik = new System.Windows.Forms.Label();
             this.lblAltBaslik = new System.Windows.Forms.Label();
+            this.tlpBaslikSag = new System.Windows.Forms.TableLayoutPanel();
+            this.btnCsvAktar = new System.Windows.Forms.Button();
+            this.ilerleme = new StokTakip.InceIlerlemeCubugu();
             this.tlpGovde = new System.Windows.Forms.TableLayoutPanel();
             this.tlpOzet = new System.Windows.Forms.TableLayoutPanel();
             this.pnlToplamSiparis = new System.Windows.Forms.Panel();
@@ -69,6 +72,7 @@
             this.tmrArama = new System.Windows.Forms.Timer(this.components);
             this.pnlHeader.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.picLogo)).BeginInit();
+            this.tlpBaslikSag.SuspendLayout();
             this.tlpGovde.SuspendLayout();
             this.tlpOzet.SuspendLayout();
             this.pnlToplamSiparis.SuspendLayout();
@@ -86,15 +90,52 @@
             //
             // pnlHeader
             //
+            this.pnlHeader.Controls.Add(this.tlpBaslikSag);
+            this.pnlHeader.Controls.Add(this.ilerleme);
             this.pnlHeader.Controls.Add(this.lblAltBaslik);
             this.pnlHeader.Controls.Add(this.lblBaslik);
             this.pnlHeader.Controls.Add(this.picLogo);
             this.pnlHeader.Dock = System.Windows.Forms.DockStyle.Top;
             this.pnlHeader.Location = new System.Drawing.Point(0, 0);
             this.pnlHeader.Name = "pnlHeader";
+            this.pnlHeader.Padding = new System.Windows.Forms.Padding(0, 0, 0, 1);
             this.pnlHeader.Size = new System.Drawing.Size(940, 64);
             this.pnlHeader.TabIndex = 1;
             this.pnlHeader.Tag = "header";
+            //
+            // tlpBaslikSag
+            //
+            this.tlpBaslikSag.AutoSize = true;
+            this.tlpBaslikSag.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+            this.tlpBaslikSag.ColumnCount = 1;
+            this.tlpBaslikSag.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
+            this.tlpBaslikSag.Controls.Add(this.btnCsvAktar, 0, 0);
+            this.tlpBaslikSag.Dock = System.Windows.Forms.DockStyle.Right;
+            this.tlpBaslikSag.Name = "tlpBaslikSag";
+            this.tlpBaslikSag.Padding = new System.Windows.Forms.Padding(0, 0, 24, 0);
+            this.tlpBaslikSag.RowCount = 1;
+            this.tlpBaslikSag.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tlpBaslikSag.TabIndex = 3;
+            //
+            // btnCsvAktar
+            //
+            this.btnCsvAktar.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this.btnCsvAktar.Margin = new System.Windows.Forms.Padding(0);
+            this.btnCsvAktar.Name = "btnCsvAktar";
+            this.btnCsvAktar.Size = new System.Drawing.Size(150, 36);
+            this.btnCsvAktar.TabIndex = 0;
+            this.btnCsvAktar.Tag = "secondary";
+            this.btnCsvAktar.Text = "CSV'ye Aktar";
+            this.btnCsvAktar.UseVisualStyleBackColor = true;
+            this.btnCsvAktar.Click += new System.EventHandler(this.btnCsvAktar_Click);
+            //
+            // ilerleme
+            //
+            this.ilerleme.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.ilerleme.Name = "ilerleme";
+            this.ilerleme.Size = new System.Drawing.Size(940, 3);
+            this.ilerleme.TabIndex = 4;
+            this.ilerleme.Visible = false;
             //
             // picLogo
             //
@@ -547,6 +588,7 @@
             this.Text = "Sipariş Geçmişi";
             this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.SiparisGecmisiForm_FormClosed);
             this.Load += new System.EventHandler(this.SiparisGecmisiForm_Load);
+            this.tlpBaslikSag.ResumeLayout(false);
             this.pnlHeader.ResumeLayout(false);
             this.pnlHeader.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.picLogo)).EndInit();
@@ -581,6 +623,9 @@
         private System.Windows.Forms.PictureBox picLogo;
         private System.Windows.Forms.Label lblBaslik;
         private System.Windows.Forms.Label lblAltBaslik;
+        private System.Windows.Forms.TableLayoutPanel tlpBaslikSag;
+        private System.Windows.Forms.Button btnCsvAktar;
+        private StokTakip.InceIlerlemeCubugu ilerleme;
         private System.Windows.Forms.TableLayoutPanel tlpGovde;
         private System.Windows.Forms.TableLayoutPanel tlpOzet;
         private System.Windows.Forms.Panel pnlToplamSiparis;

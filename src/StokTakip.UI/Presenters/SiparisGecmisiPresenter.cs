@@ -1,9 +1,12 @@
 using System;
+using System.Globalization;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using StokTakip.Application.DisaAktarim;
 using StokTakip.Application.Dtos;
 using StokTakip.Application.Services;
 using StokTakip.Views;
@@ -29,6 +32,7 @@ namespace StokTakip.Presenters
         private int _toplamSayfa;
         private bool _ozetBekliyor = true;
         private bool _siliniyor;
+        private CancellationTokenSource _aktarimIptal;
 
         public SiparisGecmisiPresenter(IServiceScopeFactory scopeFactory, IStokDegisiklikBildirimi bildirim)
             : this(scopeFactory, bildirim, NullLogger<SiparisGecmisiPresenter>.Instance)
@@ -72,6 +76,8 @@ namespace StokTakip.Presenters
                 }
             };
             _view.SiparisSilIstendi += async (s, e) => await SiparisSilAsync();
+            _view.DisaAktarIstendi += async (s, e) => await DisaAktarAsync();
+            _view.DisaAktarimIptalIstendi += (s, e) => _aktarimIptal?.Cancel();
             _view.Kapandi += (s, e) =>
             {
                 _bildirim.SiparislerDegisti -= SiparislerDegisti;
@@ -208,6 +214,124 @@ namespace StokTakip.Presenters
                 string.IsNullOrEmpty(arama) ? null : arama,
                 sayfa,
                 _view.SayfaBoyutu);
+        }
+
+        // Mevcut filtreyle (tarih aralığı, ürün adı) tüm sayfalar dosyaya yazılır; ilerleme yazılan satırlardan izlenir.
+        private async Task DisaAktarAsync()
+        {
+            if (_aktarimIptal != null || Kapandi)
+            {
+                return;
+            }
+
+            SiparisGecmisiSorgusu filtre = SorguOlustur(1);
+            string varsayilanAd = string.Format(CultureInfo.InvariantCulture, "siparisler-{0:yyyyMMdd}.csv", DateTime.Today);
+            Stream hedef;
+            try
+            {
+                hedef = _view.DisaAktarimHedefiAc(varsayilanAd);
+            }
+            catch (Exception ex)
+            {
+                HataMesaji.Logla(_logger, ex);
+                _view.HataGoster(DisaAktarimHataMesaji(ex));
+                return;
+            }
+
+            if (hedef == null)
+            {
+                return;
+            }
+
+            var iptal = CancellationTokenSource.CreateLinkedTokenSource(_kapanis.Token);
+            _aktarimIptal = iptal;
+            CancellationToken token = iptal.Token;
+            bool tamamlandi = false;
+            bool iptalEdildi = false;
+            int yazilan = 0;
+            _view.DisaAktariliyor = true;
+            try
+            {
+                try
+                {
+                    int toplam = (await _scopeFactory.CalistirAsync<ISiparisService, SayfaliSonucDto<SiparisDto>>(
+                        s => s.SiparisGecmisiSayfaGetirAsync(filtre with { SayfaBoyutu = 1 }, token))).ToplamKayit;
+                    _view.DisaAktarimIlerlemesiGoster(0, toplam);
+
+                    // İlk satır başlıktır.
+                    var sayac = new SatirSayanAkis(hedef, satir =>
+                    {
+                        yazilan = Math.Max(0, satir - 1);
+                        if (!Kapandi)
+                        {
+                            _view.DisaAktarimIlerlemesiGoster(yazilan, toplam);
+                        }
+                    });
+                    await _scopeFactory.CalistirAsync<ISiparisDisaAktarimService>(s => s.SiparisleriCsvAktarAsync(filtre, sayac, token));
+                    tamamlandi = true;
+                }
+                catch (Exception) when (iptal.IsCancellationRequested)
+                {
+                    iptalEdildi = true;
+                }
+                catch (Exception ex)
+                {
+                    HataMesaji.Logla(_logger, ex);
+                    if (!Kapandi)
+                    {
+                        _view.HataGoster(DisaAktarimHataMesaji(ex));
+                    }
+                }
+
+                try
+                {
+                    _view.DisaAktarimHedefiniKapat(hedef, tamamlandi);
+                }
+                catch (Exception ex)
+                {
+                    HataMesaji.Logla(_logger, ex);
+                    if (tamamlandi && !Kapandi)
+                    {
+                        _view.HataGoster(DisaAktarimHataMesaji(ex));
+                    }
+
+                    tamamlandi = false;
+                }
+            }
+            finally
+            {
+                _aktarimIptal = null;
+                iptal.Dispose();
+                if (!Kapandi)
+                {
+                    _view.DisaAktariliyor = false;
+                }
+            }
+
+            if (Kapandi)
+            {
+                return;
+            }
+
+            if (tamamlandi)
+            {
+                _view.BilgiGoster(string.Format(CultureInfo.CurrentCulture, "{0} kayıt aktarıldı.", yazilan.ToString("N0", CultureInfo.CurrentCulture)));
+            }
+            else if (iptalEdildi)
+            {
+                _view.BilgiGoster("Dışa aktarma iptal edildi; yarım kalan dosya silindi.");
+            }
+        }
+
+        private static string DisaAktarimHataMesaji(Exception ex)
+        {
+            if (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                return "CSV dosyası yazılamadı. Dosya başka bir programda (örneğin Excel'de) açık olabilir ya da "
+                    + "seçilen klasöre yazma izniniz olmayabilir.\n\nAyrıntı: " + ex.Message;
+            }
+
+            return "Siparişler CSV dosyasına aktarılamadı.\n\n" + HataMesaji.Olustur(ex);
         }
 
         private async Task SiparisSilAsync()

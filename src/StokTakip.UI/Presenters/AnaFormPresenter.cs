@@ -1,12 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using StokTakip.Application.Dtos;
 using StokTakip.Application.Services;
+using StokTakip.Domain;
+using StokTakip.Domain.Entities;
 using StokTakip.Domain.Exceptions;
 using StokTakip.Views;
 
@@ -25,7 +28,12 @@ namespace StokTakip.Presenters
         private const string EszamanlilikMesaji =
             "Kayıt başka biri tarafından değiştirildi, liste yenilendi. Lütfen güncel değerleri kontrol edip tekrar deneyin.";
 
+        private static readonly KategoriSecenegi TumKategoriler = new KategoriSecenegi("Tüm kategoriler", null, true);
+        private static readonly KategoriSecenegi Kategorisiz = new KategoriSecenegi("Kategorisiz", null);
+
         private IAnaFormView _view;
+        private IReadOnlyList<UrunDto> _urunler = Array.Empty<UrunDto>();
+        private UrunDto _duzenlenen;
         private bool _mesgul;
         private bool _yenilemeBekliyor;
         private bool _kapandi;
@@ -54,8 +62,15 @@ namespace StokTakip.Presenters
             _view.UrunEkleIstendi += async (s, e) => await CalistirAsync(UrunEkleAsync);
             _view.StokGuncelleIstendi += async (s, e) => await CalistirAsync(StokGuncelleAsync);
             _view.UrunSilIstendi += async (s, e) => await CalistirAsync(UrunSilAsync);
+            _view.DuzenleIstendi += (s, e) => DuzenlemeyiBaslat();
+            _view.DuzenlemeKaydetIstendi += async (s, e) => await CalistirAsync(DuzenlemeyiKaydetAsync);
+            _view.DuzenlemeVazgecIstendi += (s, e) => DuzenlemedenCik(true);
             _view.SiparisVerIstendi += async (s, e) => await CalistirAsync(SiparisVerAsync);
             _view.SiparisGecmisiIstendi += (s, e) => _view.SiparisGecmisiniAc();
+            _view.RaporlarIstendi += (s, e) => _view.RaporlariAc();
+            _view.KategorilerIstendi += (s, e) => _view.KategorileriYonet();
+            _view.FiltreDegisti += (s, e) => ListeyiGoster();
+            _view.DusukStokFiltresiIstendi += (s, e) => DusukStoklariGoster();
             _view.UrunSecildi += (s, urun) => UrunSec(urun);
             _view.Kapandi += (s, e) =>
             {
@@ -126,15 +141,89 @@ namespace StokTakip.Presenters
         private async Task EszamanlilikCakismasiniBildirAsync(EszamanlilikException ex)
         {
             HataMesaji.Logla(_logger, ex);
+            DuzenlemedenCik(false);
             await UrunleriYukleAsync();
             _view.UyariGoster(EszamanlilikMesaji);
         }
 
         private async Task UrunleriYukleAsync()
         {
-            IReadOnlyList<UrunDto> urunler = await _scopeFactory
-                .CalistirAsync<IStokService, IReadOnlyList<UrunDto>>(s => s.UrunleriListeleAsync());
-            _view.UrunleriGoster(urunler);
+            IReadOnlyList<UrunDto> urunler;
+            IReadOnlyList<KategoriDto> kategoriler;
+            await using (AsyncServiceScope scope = _scopeFactory.CreateAsyncScope())
+            {
+                urunler = await scope.ServiceProvider.GetRequiredService<IStokService>().UrunleriListeleAsync();
+                kategoriler = await scope.ServiceProvider.GetRequiredService<IKategoriService>().KategorileriListeleAsync();
+            }
+
+            var filtreSecenekleri = new List<KategoriSecenegi> { TumKategoriler, Kategorisiz };
+            var urunSecenekleri = new List<KategoriSecenegi> { Kategorisiz };
+            foreach (KategoriDto kategori in kategoriler)
+            {
+                var secenek = new KategoriSecenegi(kategori.Ad, kategori.KategoriId);
+                filtreSecenekleri.Add(secenek);
+                urunSecenekleri.Add(secenek);
+            }
+
+            _view.KategorileriGoster(filtreSecenekleri, urunSecenekleri);
+            _urunler = urunler;
+            ListeyiGoster();
+        }
+
+        private void ListeyiGoster()
+        {
+            IReadOnlyList<UrunDto> listelenen = Suz(_urunler, _view.KategoriFiltresi, _view.StokFiltresi);
+            _view.UrunleriGoster(_urunler, listelenen);
+            _view.DusukStokUyarisiGoster(_urunler.Count(u => u.StokDurumu != StokDurumu.Yeterli));
+
+            if (_duzenlenen != null)
+            {
+                UrunDto guncel = listelenen.FirstOrDefault(u => u.UrunId == _duzenlenen.UrunId);
+                if (guncel == null)
+                {
+                    DuzenlemedenCik(false);
+                }
+                else
+                {
+                    _duzenlenen = guncel;
+                }
+            }
+        }
+
+        internal static IReadOnlyList<UrunDto> Suz(IEnumerable<UrunDto> urunler, KategoriSecenegi kategori, StokFiltresi stok) =>
+            urunler
+                .Where(u => kategori == null || kategori.Tumu || u.KategoriId == kategori.KategoriId)
+                .Where(u => stok switch
+                {
+                    StokFiltresi.DusukVeKritik => u.StokDurumu != StokDurumu.Yeterli,
+                    StokFiltresi.Kritik => u.StokDurumu == StokDurumu.Kritik,
+                    _ => true,
+                })
+                .ToList();
+
+        private void DusukStoklariGoster()
+        {
+            _view.KategoriFiltresi = TumKategoriler;
+            _view.StokFiltresi = StokFiltresi.DusukVeKritik;
+            ListeyiGoster();
+        }
+
+        private bool EsikOku(bool bosIseVarsayilan, out int esik)
+        {
+            string metin = _view.EsikMetni?.Trim();
+            if (string.IsNullOrEmpty(metin) && bosIseVarsayilan)
+            {
+                esik = Urun.VarsayilanDusukStokEsigi;
+                return true;
+            }
+
+            if (int.TryParse(metin, NumberStyles.Integer, CultureInfo.CurrentCulture, out esik) && esik >= 0)
+            {
+                return true;
+            }
+
+            _view.UyariGoster("Lütfen geçerli bir düşük stok eşiği girin (0 veya daha büyük bir tam sayı).");
+            return false;
         }
 
         private async Task UrunEkleAsync()
@@ -145,7 +234,12 @@ namespace StokTakip.Presenters
                 return;
             }
 
-            var istek = new UrunEkleIstegi(_view.UrunAdi, stok);
+            if (!EsikOku(true, out int esik))
+            {
+                return;
+            }
+
+            var istek = new UrunEkleIstegi(_view.UrunAdi, stok, _view.UrunKategorisi?.KategoriId, esik);
             await _scopeFactory.CalistirAsync<IStokService>(s => s.UrunEkleAsync(istek));
             await UrunleriYukleAsync();
         }
@@ -177,6 +271,84 @@ namespace StokTakip.Presenters
             }
 
             _view.BilgiGoster("Stok güncellendi.");
+            await UrunleriYukleAsync();
+        }
+
+        private void DuzenlemeyiBaslat()
+        {
+            if (_mesgul)
+            {
+                return;
+            }
+
+            UrunDto urun = _view.SeciliUrun;
+            if (urun == null)
+            {
+                _view.UyariGoster("Lütfen düzenlemek için bir ürün seçin.");
+                return;
+            }
+
+            _duzenlenen = urun;
+            AlanlariDoldur(urun);
+            _view.DuzenlenenUrun = urun;
+        }
+
+        private void DuzenlemedenCik(bool alanlariGeriYukle)
+        {
+            if (_duzenlenen == null)
+            {
+                return;
+            }
+
+            _duzenlenen = null;
+            _view.DuzenlenenUrun = null;
+            if (alanlariGeriYukle && _view.SeciliUrun is UrunDto secili)
+            {
+                AlanlariDoldur(secili);
+            }
+        }
+
+        private async Task DuzenlemeyiKaydetAsync()
+        {
+            UrunDto urun = _duzenlenen;
+            if (urun == null)
+            {
+                return;
+            }
+
+            if (!int.TryParse(_view.StokMetni, out int stok))
+            {
+                _view.UyariGoster("Lütfen geçerli bir stok miktarı girin.");
+                return;
+            }
+
+            if (!EsikOku(false, out int esik))
+            {
+                return;
+            }
+
+            // Kategori her kayıtta açıkça gönderilir; "Kategorisiz" seçimi kategoriyi temizler.
+            var istek = new UrunGuncelleIstegi(
+                urun.UrunId, _view.UrunAdi, stok, esik, _view.UrunKategorisi?.KategoriId, KategoriGuncellensin: true);
+            UrunDto guncel;
+            try
+            {
+                guncel = await _scopeFactory.CalistirAsync<IStokService, UrunDto>(
+                    s => s.UrunGuncelleAsync(istek, beklenenRowVersion: urun.RowVersion));
+            }
+            catch (EszamanlilikException ex)
+            {
+                await EszamanlilikCakismasiniBildirAsync(ex);
+                return;
+            }
+
+            DuzenlemedenCik(false);
+            if (!string.Equals(guncel.UrunAdi, urun.UrunAdi, StringComparison.Ordinal))
+            {
+                _bildirim.SiparislerDegistiBildir(this);
+            }
+
+            _view.BilgiGoster("Ürün güncellendi.");
             await UrunleriYukleAsync();
         }
 
@@ -246,9 +418,27 @@ namespace StokTakip.Presenters
                 return;
             }
 
+            if (_duzenlenen != null)
+            {
+                // Düzenlenen ürünün satırına yeniden tıklamak girilen değerleri ezmemeli.
+                if (_duzenlenen.UrunId == urun.UrunId)
+                {
+                    return;
+                }
+
+                DuzenlemedenCik(false);
+            }
+
+            AlanlariDoldur(urun);
+            _view.SiparisUrunId = urun.UrunId;
+        }
+
+        private void AlanlariDoldur(UrunDto urun)
+        {
             _view.UrunAdi = urun.UrunAdi;
             _view.StokMetni = urun.Stok.ToString(CultureInfo.CurrentCulture);
-            _view.SiparisUrunId = urun.UrunId;
+            _view.EsikMetni = urun.DusukStokEsigi.ToString(CultureInfo.CurrentCulture);
+            _view.UrunKategorisi = new KategoriSecenegi(urun.KategoriAdi ?? Kategorisiz.Ad, urun.KategoriId);
         }
     }
 }

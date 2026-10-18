@@ -153,10 +153,16 @@ namespace StokTakip
             services.AddSingleton<IStokDegisiklikBildirimi, StokDegisiklikBildirimi>();
             services.AddTransient<IAnaFormPresenter, AnaFormPresenter>();
             services.AddTransient<ISiparisGecmisiPresenter, SiparisGecmisiPresenter>();
+            services.AddTransient<IKategorilerPresenter, KategorilerPresenter>();
+            services.AddTransient<IRaporlarPresenter, RaporlarPresenter>();
 
             services.AddTransient<Form1>();
             services.AddSingleton<Func<SiparisGecmisiForm>>(
                 sp => () => ActivatorUtilities.CreateInstance<SiparisGecmisiForm>(sp));
+            services.AddSingleton<Func<KategorilerForm>>(
+                sp => () => ActivatorUtilities.CreateInstance<KategorilerForm>(sp));
+            services.AddSingleton<Func<RaporlarForm>>(
+                sp => () => ActivatorUtilities.CreateInstance<RaporlarForm>(sp));
 
             return services.BuildServiceProvider(new ServiceProviderOptions
             {
