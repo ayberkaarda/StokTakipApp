@@ -62,8 +62,8 @@ public sealed class SiparisService : ISiparisService
 
     public async Task<SiparisOzetiDto> SiparisOzetiGetirAsync(CancellationToken cancellationToken = default)
     {
-        var siparisler = await _siparisRepository.GetGecmisAsync(cancellationToken);
-        return new SiparisOzetiDto(siparisler.Count, siparisler.Sum(s => s.Adet));
+        var ozet = await _siparisRepository.GetOzetAsync(cancellationToken);
+        return new SiparisOzetiDto(ozet.SiparisSayisi, checked((int)ozet.ToplamAdet));
     }
 
     public async Task SiparisSilAsync(int siparisId, CancellationToken cancellationToken = default)
