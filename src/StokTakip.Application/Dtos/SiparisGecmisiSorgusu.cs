@@ -5,4 +5,5 @@ public sealed record SiparisGecmisiSorgusu(
     DateTime? Bitis = null,
     string? UrunAdi = null,
     int Sayfa = 1,
-    int SayfaBoyutu = 20);
+    int SayfaBoyutu = 20,
+    int? UrunId = null);

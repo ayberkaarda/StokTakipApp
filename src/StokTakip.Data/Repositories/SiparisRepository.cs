@@ -16,6 +16,7 @@ public sealed class SiparisRepository(StokTakipDbContext context) : ISiparisRepo
             .OrderByDescending(x => x.Tarih).ThenByDescending(x => x.SiparisId)
             .ToListAsync(cancellationToken);
 
+    // sayım ve liste ayrı sorgular, eşzamanlı yazımda anlık tutarsızlık olabilir
     public async Task<SayfaliSonuc<Siparis>> GetGecmisSayfaAsync(
         SiparisFiltresi filtre, int sayfa, int sayfaBoyutu, CancellationToken cancellationToken = default)
     {
