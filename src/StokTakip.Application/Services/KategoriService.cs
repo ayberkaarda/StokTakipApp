@@ -67,6 +67,10 @@ public sealed class KategoriService : IKategoriService
             _logger.LogInformation("Kategori eklendi. KategoriId={KategoriId}", kategori.KategoriId);
             return kategori.ToDto();
         }
+        catch (KayitZatenVarException)
+        {
+            throw new GecersizGirdiException("Bu ada sahip bir kategori zaten var.", nameof(Kategori.Ad));
+        }
         catch (DomainException ex) when (_logger.IhlaliLogla(ex, nameof(KategoriEkleAsync)))
         {
             throw;
@@ -89,6 +93,10 @@ public sealed class KategoriService : IKategoriService
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             _logger.LogInformation("Kategori yeniden adlandırıldı. KategoriId={KategoriId}", kategoriId);
             return kategori.ToDto();
+        }
+        catch (KayitZatenVarException)
+        {
+            throw new GecersizGirdiException("Bu ada sahip bir kategori zaten var.", nameof(Kategori.Ad));
         }
         catch (DomainException ex) when (_logger.IhlaliLogla(ex, nameof(KategoriYenidenAdlandirAsync)))
         {

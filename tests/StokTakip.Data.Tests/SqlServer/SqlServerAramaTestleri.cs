@@ -157,12 +157,8 @@ public sealed class SqlServerAramaTestleri(SqlServerVeritabani db, ITestOutputHe
         Assert.Equal(new[] { "ali|Kalem", "veli|Kalem" }, await DenetimdeAraAsync(new DenetimSorgusu(KullaniciAdi: " li ")));
     }
 
-    /// <summary>
-    /// AÇIK bulgu: kullanıcı adları ASCII küçük harfle saklanır, arama metni küçültülmez. SQLite'ta (ASCII CI LIKE) geçen
-    /// DenetimSorguTestleri.Kullanici_adi_like_kacisli_parca_eslesmesidir " LI " beklentisi Turkish_CI_AS'ta tutmaz:
-    /// 'I' yalnızca 'ı' ile eşleşir, "ali" bulunmaz. "ADMIN" ile "admin" de bulunmaz.
-    /// </summary>
-    [Fact(Skip = "AÇIK: DenetimRepository.Filtrele KullaniciAdi LIKE'ı Turkish_CI_AS'ta ' LI ' ile 'ali'yi bulmuyor (SQLite'ta buluyor).")]
+    /// <summary>Kullanıcı adları küçük harfle saklanır; arama metni ToLowerInvariant ile normalize edilir (" LI " ve "ADMIN" bulunur).</summary>
+    [SqlServerFact]
     public async Task Denetim_kullanici_adi_aramasi_buyuk_harfle_de_eslesir()
     {
         await DenetimKaydiEkleAsync("ali", "Kalem");

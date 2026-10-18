@@ -118,7 +118,7 @@ public sealed class DenetimService : IDenetimService
         return new DenetimFiltresi(
             baslangicUtc,
             bitisHaricUtc,
-            Metin(sorgu.KullaniciAdi, DenetimKaydi.KullaniciAdiMaksimumUzunluk),
+            Metin(sorgu.KullaniciAdi, DenetimKaydi.KullaniciAdiMaksimumUzunluk)?.ToLowerInvariant(),
             sorgu.Islem,
             Metin(sorgu.VarlikAdi, DenetimKaydi.VarlikAdiMaksimumUzunluk));
     }
