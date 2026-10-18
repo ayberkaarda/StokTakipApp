@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Restore
+        run: dotnet restore StokTakip.sln
+      - name: Build
+        run: dotnet build StokTakip.sln -c Release --no-restore -warnaserror
+      - name: Test
+        run: dotnet test StokTakip.sln -c Release --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults
+      - name: Check vulnerable packages
+        shell: pwsh
+        run: |
+          $output = dotnet list StokTakip.sln package --vulnerable --include-transitive 2>&1
+          $output | ForEach-Object { Write-Output $_ }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($output -match 'has the following vulnerable packages') { throw 'Vulnerable packages found.' }
+      - name: Restore tools
+        run: dotnet tool restore
+      - name: Check migrations
+        run: dotnet ef migrations has-pending-model-changes --project src/StokTakip.Data
+      - name: Upload test results and coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-and-coverage
+          path: TestResults/**
+          if-no-files-found: ignore
+
+  publish:
+    needs: build-test
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Publish
+        run: dotnet publish src/StokTakip.UI/StokTakip.UI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o ./publish
+      - name: Package
+        shell: pwsh
+        run: Compress-Archive -Path ./publish/* -DestinationPath "StokTakip-${{ github.ref_name }}-win-x64.zip"
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: StokTakip-${{ github.ref_name }}-win-x64
+          path: StokTakip-${{ github.ref_name }}-win-x64.zip
