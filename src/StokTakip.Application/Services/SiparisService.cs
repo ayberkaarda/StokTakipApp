@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using StokTakip.Application.Dtos;
 using StokTakip.Application.Mapping;
+using StokTakip.Domain;
 using StokTakip.Domain.Entities;
 using StokTakip.Domain.Exceptions;
 using StokTakip.Domain.Repositories;
@@ -84,6 +85,23 @@ public sealed class SiparisService : ISiparisService
     {
         var siparisler = await _siparisRepository.GetGecmisAsync(cancellationToken);
         return siparisler.Select(s => s.ToDto()).ToList();
+    }
+
+    public async Task<SayfaliSonucDto<SiparisDto>> SiparisGecmisiSayfaGetirAsync(
+        SiparisGecmisiSorgusu sorgu, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sorgu);
+        if (sorgu.Baslangic.HasValue && sorgu.Bitis.HasValue && sorgu.Baslangic.Value > sorgu.Bitis.Value)
+            throw new GecersizGirdiException("Başlangıç tarihi bitiş tarihinden sonra olamaz.", nameof(sorgu.Baslangic));
+
+        var urunAdi = sorgu.UrunAdi?.Trim();
+        if (urunAdi?.Length > 100)
+            urunAdi = urunAdi[..100];
+
+        var filtre = new SiparisFiltresi(sorgu.Baslangic, sorgu.Bitis, urunAdi);
+        var sonuc = await _siparisRepository.GetGecmisSayfaAsync(
+            filtre, Math.Max(1, sorgu.Sayfa), Math.Clamp(sorgu.SayfaBoyutu, 1, 200), cancellationToken);
+        return sonuc.ToDto(s => s.ToDto());
     }
 
     public async Task<SiparisOzetiDto> SiparisOzetiGetirAsync(CancellationToken cancellationToken = default)
