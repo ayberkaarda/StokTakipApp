@@ -1,5 +1,6 @@
 using System;
 using System.Data.Common;
+using Microsoft.Extensions.Logging;
 using StokTakip.Domain.Exceptions;
 using StokTakip.Views;
 
@@ -7,6 +8,18 @@ namespace StokTakip.Presenters
 {
     internal static class HataMesaji
     {
+        public static void Logla(ILogger logger, Exception ex)
+        {
+            if (ex is DomainException)
+            {
+                logger.LogDebug("Kullanıcıya iş kuralı uyarısı gösterildi: {HataTuru}", ex.GetType().Name);
+            }
+            else
+            {
+                logger.LogError(ex, "Beklenmeyen hata: {HataTuru}", ex.GetType().Name);
+            }
+        }
+
         public static void Goster(IMesajView view, Exception ex)
         {
             if (ex is DomainException)

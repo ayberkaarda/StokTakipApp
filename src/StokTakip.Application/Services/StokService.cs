@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using StokTakip.Application.Dtos;
 using StokTakip.Application.Mapping;
 using StokTakip.Domain.Entities;
@@ -12,11 +14,18 @@ public sealed class StokService : IStokService
 
     private readonly IUrunRepository _urunRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILogger<StokService> _logger;
 
     public StokService(IUrunRepository urunRepository, IUnitOfWork unitOfWork)
+        : this(urunRepository, unitOfWork, NullLogger<StokService>.Instance)
+    {
+    }
+
+    public StokService(IUrunRepository urunRepository, IUnitOfWork unitOfWork, ILogger<StokService> logger)
     {
         _urunRepository = urunRepository ?? throw new ArgumentNullException(nameof(urunRepository));
         _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public async Task<IReadOnlyList<UrunDto>> UrunleriListeleAsync(CancellationToken cancellationToken = default)
@@ -40,48 +49,80 @@ public sealed class StokService : IStokService
     {
         ArgumentNullException.ThrowIfNull(istek);
 
-        var urun = new Urun(istek.UrunAdi, istek.Stok);
-        await _urunRepository.AddAsync(urun, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-        return urun.ToDto();
+        try
+        {
+            var urun = new Urun(istek.UrunAdi, istek.Stok);
+            await _urunRepository.AddAsync(urun, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation("Ürün eklendi. UrunId={UrunId}", urun.UrunId);
+            return urun.ToDto();
+        }
+        catch (DomainException ex) when (_logger.IhlaliLogla(ex, nameof(UrunEkleAsync)))
+        {
+            throw;
+        }
     }
 
     public async Task<UrunDto> UrunGuncelleAsync(UrunGuncelleIstegi istek, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(istek);
 
-        // Ad ve stok birlikte doğrulanır ki izlenen varlık yarım güncellenmesin.
-        AdDogrula(istek.UrunAdi);
-        StokDogrula(istek.Stok);
+        try
+        {
+            // Ad ve stok birlikte doğrulanır ki izlenen varlık yarım güncellenmesin.
+            AdDogrula(istek.UrunAdi);
+            StokDogrula(istek.Stok);
 
-        var urun = await UrunuBulAsync(istek.UrunId, cancellationToken);
-        urun.AdiDegistir(istek.UrunAdi);
-        urun.StokAyarla(istek.Stok);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-        return urun.ToDto();
+            var urun = await UrunuBulAsync(istek.UrunId, cancellationToken);
+            urun.AdiDegistir(istek.UrunAdi);
+            urun.StokAyarla(istek.Stok);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation("Ürün güncellendi. UrunId={UrunId}", urun.UrunId);
+            return urun.ToDto();
+        }
+        catch (DomainException ex) when (_logger.IhlaliLogla(ex, nameof(UrunGuncelleAsync)))
+        {
+            throw;
+        }
     }
 
     public async Task<UrunDto> StokGuncelleAsync(int urunId, int yeniStok, CancellationToken cancellationToken = default)
     {
-        StokDogrula(yeniStok);
+        try
+        {
+            StokDogrula(yeniStok);
 
-        var urun = await UrunuBulAsync(urunId, cancellationToken);
-        urun.StokAyarla(yeniStok);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-        return urun.ToDto();
+            var urun = await UrunuBulAsync(urunId, cancellationToken);
+            urun.StokAyarla(yeniStok);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation("Stok güncellendi. UrunId={UrunId}, YeniStok={YeniStok}", urunId, yeniStok);
+            return urun.ToDto();
+        }
+        catch (DomainException ex) when (_logger.IhlaliLogla(ex, nameof(StokGuncelleAsync)))
+        {
+            throw;
+        }
     }
 
     public async Task UrunSilAsync(int urunId, CancellationToken cancellationToken = default)
     {
-        var urun = await UrunuBulAsync(urunId, cancellationToken);
-
-        if (await _urunRepository.HasSiparisAsync(urunId, cancellationToken))
+        try
         {
-            throw new GecersizIslemException($"'{urun.UrunAdi}' ürününe ait sipariş kaydı bulunduğu için ürün silinemez.");
-        }
+            var urun = await UrunuBulAsync(urunId, cancellationToken);
 
-        _urunRepository.Remove(urun);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+            if (await _urunRepository.HasSiparisAsync(urunId, cancellationToken))
+            {
+                throw new GecersizIslemException($"'{urun.UrunAdi}' ürününe ait sipariş kaydı bulunduğu için ürün silinemez.");
+            }
+
+            _urunRepository.Remove(urun);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation("Ürün silindi. UrunId={UrunId}", urunId);
+        }
+        catch (DomainException ex) when (_logger.IhlaliLogla(ex, nameof(UrunSilAsync)))
+        {
+            throw;
+        }
     }
 
     private async Task<Urun> UrunuBulAsync(int urunId, CancellationToken cancellationToken)
