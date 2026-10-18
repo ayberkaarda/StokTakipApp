@@ -173,7 +173,7 @@ namespace StokTakip
             foreach (Control child in parent.Controls)
             {
                 StyleControl(child);
-                if (child.HasChildren && !(child is DataGridView))
+                if (child.HasChildren && !(child is DataGridView) && !(child is ParolaIpucuPaneli))
                 {
                     ApplyToChildren(child);
                 }
@@ -217,6 +217,9 @@ namespace StokTakip
                     checkBox.Font = BodyFont;
                     checkBox.ForeColor = Palette.TextSecondary;
                     checkBox.Cursor = Cursors.Hand;
+                    break;
+                case UyariKutusu _:
+                case ParolaIpucuPaneli _:
                     break;
                 case Label label:
                     StyleLabel(label, role);
@@ -328,6 +331,24 @@ namespace StokTakip
             label.Text = "● " + text;
         }
 
+        /// <summary>Otomatik boyutlu, çok satırlı etiketin kapsayıcı genişliğinde satır kırmasını sağlar.</summary>
+        public static void SatirKir(Label label, Control kapsayici)
+        {
+            void Ayarla()
+            {
+                int genislik = Math.Max(1, kapsayici.ClientSize.Width - kapsayici.Padding.Horizontal - label.Margin.Horizontal);
+                if (label.MaximumSize.Width != genislik || label.MinimumSize.Width != genislik)
+                {
+                    label.MaximumSize = new Size(genislik, 0);
+                    label.MinimumSize = new Size(genislik, 0);
+                }
+            }
+
+            // DPI ölçeklemesi en küçük/en büyük boyutu da ölçeklediği için her yerleşimde yeniden hesaplanır.
+            Ayarla();
+            kapsayici.Layout += (s, e) => Ayarla();
+        }
+
         private static void PaintBadgeBorder(object sender, PaintEventArgs e)
         {
             var label = (Control)sender;
@@ -361,6 +382,8 @@ namespace StokTakip
             radio.CheckedChanged += (s, e) => Guncelle();
         }
 
+        private static readonly Color PrimaryDisabled = Color.FromArgb(191, 219, 254);
+
         private static void StyleButton(Button button, string role)
         {
             button.FlatStyle = FlatStyle.Flat;
@@ -377,6 +400,10 @@ namespace StokTakip
                     button.FlatAppearance.BorderSize = 0;
                     button.FlatAppearance.MouseOverBackColor = Palette.PrimaryHover;
                     button.FlatAppearance.MouseDownBackColor = Palette.PrimaryPressed;
+
+                    // Pasif birincil düğme açık zeminle gösterilir (koyu metin mavi zeminde okunmuyordu).
+                    button.BackColor = button.Enabled ? Palette.Primary : PrimaryDisabled;
+                    button.EnabledChanged += (s, e) => button.BackColor = button.Enabled ? Palette.Primary : PrimaryDisabled;
                     break;
                 case Roles.Danger:
                     button.BackColor = Palette.Surface;

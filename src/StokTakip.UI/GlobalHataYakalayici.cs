@@ -10,8 +10,6 @@ namespace StokTakip
 {
     internal static class GlobalHataYakalayici
     {
-        private const string GunlukNotu = "\n\nAyrıntılar günlük dosyasına kaydedildi.";
-
         private static SynchronizationContext _arayuzBaglami;
 
         private static ILogger Gunlukcu => Log.ForContext(typeof(GlobalHataYakalayici));
@@ -27,7 +25,7 @@ namespace StokTakip
         private static void ArayuzHatasi(object sender, ThreadExceptionEventArgs e)
         {
             Gunlukcu.Error(Gunluk.Ayrinti(e.Exception), "Arayüz iş parçacığında yakalanmayan hata: {Hata}", Gunluk.HataOzeti(e.Exception));
-            Goster(HataMesaji.Olustur(e.Exception) + GunlukNotu);
+            Goster(HataMesaji.Olustur(e.Exception));
         }
 
         private static void YakalanmayanHata(object sender, UnhandledExceptionEventArgs e)
@@ -39,13 +37,13 @@ namespace StokTakip
                 Log.CloseAndFlush();
             }
 
-            string mesaj = ex != null ? HataMesaji.Olustur(ex) : "Beklenmeyen bir hata oluştu.";
+            string mesaj = ex != null ? HataMesaji.Olustur(ex) : HataMesaji.BeklenmeyenHata;
             if (e.IsTerminating)
             {
                 mesaj += "\n\nUygulama kapatılacak.";
             }
 
-            Goster(mesaj + GunlukNotu);
+            Goster(mesaj);
         }
 
         private static void GozlemlenmeyenGorevHatasi(object sender, UnobservedTaskExceptionEventArgs e)
@@ -54,7 +52,7 @@ namespace StokTakip
             e.SetObserved();
 
             Exception ic = e.Exception.InnerException ?? e.Exception;
-            string mesaj = "Arka planda yürütülen bir işlem tamamlanamadı.\n\n" + HataMesaji.Olustur(ic) + GunlukNotu;
+            string mesaj = "Arka planda yürütülen bir işlem tamamlanamadı.\n\n" + HataMesaji.Olustur(ic);
             if (_arayuzBaglami != null)
             {
                 _arayuzBaglami.Post(_ => Goster(mesaj), null);

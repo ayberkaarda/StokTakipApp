@@ -6,8 +6,20 @@ using StokTakip.Views;
 
 namespace StokTakip.Presenters
 {
+    /// <summary>
+    /// Kullanıcıya yalnızca iş kuralı mesajları olduğu gibi gösterilir; veritabanı ve diğer hata metinleri
+    /// (tablo, indeks, sunucu, dosya yolu içerebilir) gösterilmez, günlüğe yazılır.
+    /// </summary>
     internal static class HataMesaji
     {
+        public const string BeklenmeyenHata = "Beklenmeyen bir hata oluştu. Ayrıntılar günlüğe yazıldı.";
+
+        public const string VeritabaninaErisilemedi =
+            "Veritabanına erişilemedi. appsettings.json dosyasındaki ConnectionStrings:StokTakip bağlantı dizesini "
+            + "ve SQL Server'ın çalıştığını kontrol edin. Ayrıntılar günlüğe yazıldı.";
+
+        public const string VeritabaniIslemiTamamlanamadi = "Veritabanı işlemi tamamlanamadı. Ayrıntılar günlüğe yazıldı.";
+
         public static void Logla(ILogger logger, Exception ex)
         {
             if (ex is DomainException)
@@ -41,19 +53,18 @@ namespace StokTakip.Presenters
 
             if (ex is DbException)
             {
-                return "Veritabanına erişilemedi. appsettings.json dosyasındaki ConnectionStrings:StokTakip bağlantı dizesini "
-                    + "ve SQL Server'ın çalıştığını kontrol edin.\n\nAyrıntı: " + ex.Message;
+                return VeritabaninaErisilemedi;
             }
 
-            for (Exception ic = ex.InnerException; ic != null; ic = ic.InnerException)
+            for (Exception ic = ex?.InnerException; ic != null; ic = ic.InnerException)
             {
                 if (ic is DbException)
                 {
-                    return "Veritabanı işlemi tamamlanamadı.\n\nAyrıntı: " + ic.Message;
+                    return VeritabaniIslemiTamamlanamadi;
                 }
             }
 
-            return "Beklenmeyen bir hata oluştu.\n\nAyrıntı: " + ex.Message;
+            return BeklenmeyenHata;
         }
     }
 }

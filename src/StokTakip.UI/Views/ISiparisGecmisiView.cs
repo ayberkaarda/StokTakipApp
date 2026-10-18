@@ -43,5 +43,7 @@ namespace StokTakip.Views
         void SayfayiGoster(SayfaliSonucDto<SiparisDto> sonuc);
 
         void OzetiGoster(SiparisOzetiDto ozet);
+
+        void YetkileriUygula(bool siparisSilebilir, bool csvAktarabilir);
     }
 }
