@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using StokTakip.Application.Dtos;
 using StokTakip.Application.Services;
 using StokTakip.Views;
@@ -18,13 +20,20 @@ namespace StokTakip.Presenters
     {
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly IStokDegisiklikBildirimi _bildirim;
+        private readonly ILogger<AnaFormPresenter> _logger;
         private IAnaFormView _view;
         private bool _mesgul;
 
         public AnaFormPresenter(IServiceScopeFactory scopeFactory, IStokDegisiklikBildirimi bildirim)
+            : this(scopeFactory, bildirim, NullLogger<AnaFormPresenter>.Instance)
+        {
+        }
+
+        public AnaFormPresenter(IServiceScopeFactory scopeFactory, IStokDegisiklikBildirimi bildirim, ILogger<AnaFormPresenter> logger)
         {
             _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
             _bildirim = bildirim ?? throw new ArgumentNullException(nameof(bildirim));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         public void Bagla(IAnaFormView view)
@@ -60,6 +69,7 @@ namespace StokTakip.Presenters
             }
             catch (Exception ex)
             {
+                HataMesaji.Logla(_logger, ex);
                 HataMesaji.Goster(_view, ex);
             }
             finally
@@ -77,6 +87,7 @@ namespace StokTakip.Presenters
             }
             catch (Exception ex)
             {
+                HataMesaji.Logla(_logger, ex);
                 HataMesaji.Goster(_view, ex);
             }
         }

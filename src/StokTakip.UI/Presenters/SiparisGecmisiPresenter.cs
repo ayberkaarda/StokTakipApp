@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using StokTakip.Application.Dtos;
 using StokTakip.Application.Services;
 using StokTakip.Views;
@@ -17,13 +19,20 @@ namespace StokTakip.Presenters
     {
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly IStokDegisiklikBildirimi _bildirim;
+        private readonly ILogger<SiparisGecmisiPresenter> _logger;
         private ISiparisGecmisiView _view;
         private bool _mesgul;
 
         public SiparisGecmisiPresenter(IServiceScopeFactory scopeFactory, IStokDegisiklikBildirimi bildirim)
+            : this(scopeFactory, bildirim, NullLogger<SiparisGecmisiPresenter>.Instance)
+        {
+        }
+
+        public SiparisGecmisiPresenter(IServiceScopeFactory scopeFactory, IStokDegisiklikBildirimi bildirim, ILogger<SiparisGecmisiPresenter> logger)
         {
             _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
             _bildirim = bildirim ?? throw new ArgumentNullException(nameof(bildirim));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         public void Bagla(ISiparisGecmisiView view)
@@ -53,6 +62,7 @@ namespace StokTakip.Presenters
             }
             catch (Exception ex)
             {
+                HataMesaji.Logla(_logger, ex);
                 HataMesaji.Goster(_view, ex);
             }
             finally

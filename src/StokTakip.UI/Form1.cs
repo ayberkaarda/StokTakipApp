@@ -34,19 +34,19 @@ namespace StokTakip
         string IAnaFormView.UrunAdi
         {
             get => txtUrunAdi.Text;
-            set => txtUrunAdi.Text = value;
+            set { if (!Kapali) txtUrunAdi.Text = value; }
         }
 
         string IAnaFormView.StokMetni
         {
             get => txtStok.Text;
-            set => txtStok.Text = value;
+            set { if (!Kapali) txtStok.Text = value; }
         }
 
         string IAnaFormView.SiparisAdetMetni
         {
             get => txtSiparisAdet.Text;
-            set => txtSiparisAdet.Text = value;
+            set { if (!Kapali) txtSiparisAdet.Text = value; }
         }
 
         int? IAnaFormView.SeciliUrunId =>
@@ -59,6 +59,11 @@ namespace StokTakip
             get => cmbUrunler.SelectedValue is int urunId ? urunId : null;
             set
             {
+                if (Kapali)
+                {
+                    return;
+                }
+
                 if (value == null)
                 {
                     cmbUrunler.SelectedIndex = -1;
@@ -74,11 +79,16 @@ namespace StokTakip
 
         bool IMesajView.Mesgul
         {
-            set => UseWaitCursor = value;
+            set { if (!Kapali) UseWaitCursor = value; }
         }
 
         void IAnaFormView.UrunleriGoster(IReadOnlyList<UrunDto> urunler)
         {
+            if (Kapali)
+            {
+                return;
+            }
+
             object seciliSiparisUrunu = cmbUrunler.SelectedValue;
 
             dgvUrunler.DataSource = urunler.ToList();
@@ -94,16 +104,40 @@ namespace StokTakip
 
         void IAnaFormView.SiparisGecmisiniAc()
         {
-            _siparisGecmisiFormu().Show();
+            if (!Kapali)
+            {
+                _siparisGecmisiFormu().Show();
+            }
         }
 
-        void IMesajView.BilgiGoster(string mesaj) => MesajKutusu.Bilgi(this, mesaj);
+        void IMesajView.BilgiGoster(string mesaj)
+        {
+            if (!Kapali)
+            {
+                MesajKutusu.Bilgi(this, mesaj);
+            }
+        }
 
-        void IMesajView.UyariGoster(string mesaj) => MesajKutusu.Uyari(this, mesaj);
+        void IMesajView.UyariGoster(string mesaj)
+        {
+            if (!Kapali)
+            {
+                MesajKutusu.Uyari(this, mesaj);
+            }
+        }
 
-        void IMesajView.HataGoster(string mesaj) => MesajKutusu.Hata(this, mesaj);
+        void IMesajView.HataGoster(string mesaj)
+        {
+            if (!Kapali)
+            {
+                MesajKutusu.Hata(this, mesaj);
+            }
+        }
 
-        bool IMesajView.OnayAl(string mesaj, string baslik) => MesajKutusu.Onay(this, mesaj, baslik);
+        bool IMesajView.OnayAl(string mesaj, string baslik) => !Kapali && MesajKutusu.Onay(this, mesaj, baslik);
+
+        // Async işlem sürerken form kapatılırsa devam eden kod kapanmış forma yazmasın.
+        private bool Kapali => IsDisposed || Disposing || !IsHandleCreated;
 
         private void Form1_Load(object sender, EventArgs e) => Yuklendi?.Invoke(this, EventArgs.Empty);
 
