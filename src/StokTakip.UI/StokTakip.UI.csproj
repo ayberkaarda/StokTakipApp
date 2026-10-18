@@ -25,8 +25,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.1.1" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.13" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.13" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\StokTakip.Domain\StokTakip.Domain.csproj" />
+    <ProjectReference Include="..\StokTakip.Application\StokTakip.Application.csproj" />
+    <ProjectReference Include="..\StokTakip.Data\StokTakip.Data.csproj" />
   </ItemGroup>
 
   <ItemGroup>
