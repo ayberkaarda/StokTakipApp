@@ -21,4 +21,12 @@ public sealed class UrunRepository(StokTakipDbContext context) : IUrunRepository
         => await context.Urunler.AddAsync(urun, cancellationToken);
 
     public void Remove(Urun urun) => context.Urunler.Remove(urun);
+
+    public void SetBeklenenRowVersion(Urun urun, byte[] beklenenRowVersion)
+    {
+        ArgumentNullException.ThrowIfNull(urun);
+        ArgumentNullException.ThrowIfNull(beklenenRowVersion);
+        context.Entry(urun).Property(x => x.RowVersion).OriginalValue = beklenenRowVersion.ToArray();
+        context.Entry(urun).Property(x => x.Stok).IsModified = true;
+    }
 }

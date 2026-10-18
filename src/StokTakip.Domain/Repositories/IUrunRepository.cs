@@ -18,4 +18,6 @@ public interface IUrunRepository
     Task AddAsync(Urun urun, CancellationToken cancellationToken = default);
 
     void Remove(Urun urun);
+
+    void SetBeklenenRowVersion(Urun urun, byte[] beklenenRowVersion);
 }

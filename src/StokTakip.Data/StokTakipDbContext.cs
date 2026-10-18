@@ -17,7 +17,7 @@ public sealed class StokTakipDbContext(DbContextOptions<StokTakipDbContext> opti
         urun.ToTable("Urunler", t => t.HasCheckConstraint("CK_Urunler_Stok", "[Stok] >= 0"));
         urun.HasKey(x => x.UrunId);
         urun.Property(x => x.UrunId).HasColumnName("UrunID");
-        urun.Property(x => x.UrunAdi).IsRequired().HasMaxLength(200);
+        urun.Property(x => x.UrunAdi).IsRequired().HasMaxLength(Urun.UrunAdiMaksimumUzunluk);
         urun.Property(x => x.RowVersion).IsRowVersion();
 
         var siparis = modelBuilder.Entity<Siparis>();
