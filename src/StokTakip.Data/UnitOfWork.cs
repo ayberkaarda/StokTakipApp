@@ -1,4 +1,5 @@
 using System.Data;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using StokTakip.Domain.Exceptions;
@@ -27,11 +28,27 @@ public sealed class UnitOfWork(StokTakipDbContext context) : IUnitOfWork
             TransactionDisindaysaTemizle();
             throw new EszamanlilikException();
         }
+        catch (DbUpdateException ex) when (BenzersizlikIhlali(ex.InnerException))
+        {
+            TransactionDisindaysaTemizle();
+            throw new KayitZatenVarException();
+        }
         catch
         {
             TransactionDisindaysaTemizle();
             throw;
         }
+    }
+
+    private static bool BenzersizlikIhlali(Exception? exception)
+    {
+        if (exception is SqlException sqlException)
+            return sqlException.Number is 2601 or 2627;
+
+        // SQLite yalnızca testlerde yüklüdür; sağlayıcıya derleme bağımlılığı eklenmez.
+        return exception?.GetType().FullName == "Microsoft.Data.Sqlite.SqliteException"
+            && exception.GetType().GetProperty("SqliteExtendedErrorCode")?.GetValue(exception) is int kod
+            && kod is 2067 or 1555;
     }
 
     /// <summary>

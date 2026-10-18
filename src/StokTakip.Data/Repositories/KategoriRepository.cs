@@ -15,18 +15,19 @@ public sealed class KategoriRepository(StokTakipDbContext context) : IKategoriRe
             .OrderBy(x => x.Ad).ThenBy(x => x.KategoriId)
             .ToListAsync(cancellationToken);
 
-    /// <remarks>
-    /// UPPER her iki tarafa uygulanır ki karşılaştırma, SQL Server'ın varsayılan (büyük/küçük harf duyarsız)
-    /// harmanlamasından bağımsız ve SQLite'ta da aynı olsun. Tablo küçük olduğundan indeks kullanılamaması sorun değildir;
-    /// eşzamanlı eklemelere karşı son garanti benzersiz indekstir.
-    /// </remarks>
     public Task<bool> AdKullaniliyorMuAsync(string ad, int? haricKategoriId = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(ad);
-        var aranan = ad.Trim().ToUpperInvariant();
-        return context.Kategoriler.AnyAsync(
-            x => x.Ad.ToUpper() == aranan && (haricKategoriId == null || x.KategoriId != haricKategoriId),
-            cancellationToken);
+        var aranan = ad.Trim();
+        var sorgu = context.Kategoriler.Where(x => haricKategoriId == null || x.KategoriId != haricKategoriId);
+        // SQL Server kendi kollasyonunu kullanır; SQLite'ın mevcut harf duyarsız kontrolü korunur.
+        if (context.Database.ProviderName == "Microsoft.EntityFrameworkCore.Sqlite")
+        {
+            aranan = aranan.ToUpperInvariant();
+            return sorgu.AnyAsync(x => x.Ad.ToUpper() == aranan, cancellationToken);
+        }
+
+        return sorgu.AnyAsync(x => x.Ad == aranan, cancellationToken);
     }
 
     public async Task AddAsync(Kategori kategori, CancellationToken cancellationToken = default)

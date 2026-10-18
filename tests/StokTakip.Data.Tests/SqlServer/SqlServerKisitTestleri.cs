@@ -133,7 +133,7 @@ public sealed class SqlServerKisitTestleri(SqlServerVeritabani db) : IClassFixtu
     }
 
     [SqlServerFact]
-    public async Task Kullanici_adi_benzersiz_indeksi_UnitOfWork_uzerinden_DbUpdateException_verir_EszamanlilikException_degil_kapsam_kullanilabilir_kalir()
+    public async Task Kullanici_adi_benzersiz_indeksi_UnitOfWork_uzerinden_KayitZatenVarException_verir_EszamanlilikException_degil_kapsam_kullanilabilir_kalir()
     {
         await db.KullaniciEkleAsync("ali", KullaniciRolu.Operator);
 
@@ -141,11 +141,8 @@ public sealed class SqlServerKisitTestleri(SqlServerVeritabani db) : IClassFixtu
         var unitOfWork = new UnitOfWork(context);
         context.Kullanicilar.Add(new Kullanici("ali", [1], [1], 1, KullaniciRolu.Operator));
 
-        var hata = await Assert.ThrowsAsync<DbUpdateException>(() => unitOfWork.SaveChangesAsync());
-        Assert.IsNotType<DbUpdateConcurrencyException>(hata);
-        var sql = SqlHata.Bul(hata);
-        Assert.Equal(BenzersizIndeksIhlali, sql?.Number);
-        Assert.Contains("IX_Kullanicilar_KullaniciAdi", sql!.Message);
+        var hata = await Assert.ThrowsAsync<KayitZatenVarException>(() => unitOfWork.SaveChangesAsync());
+        Assert.IsNotType<EszamanlilikException>(hata);
 
         // Transaction dışındaki başarısız kayıt izlenmeye devam etmez; aynı kapsamdaki sonraki kayıt yalnızca kendini yazar.
         Assert.Empty(context.ChangeTracker.Entries());
@@ -184,12 +181,10 @@ public sealed class SqlServerKisitTestleri(SqlServerVeritabani db) : IClassFixtu
     }
 
     /// <summary>
-    /// AÇIK bulgu: ön denetim C# ToUpperInvariant ("Kitap" → "KITAP") ile SQL UPPER'ı (Turkish_CI_AS: "Kitap" → "KİTAP")
-    /// karşılaştırır; küçük 'i' içeren adlarda birebir aynı ad bile eşleşmez. Benzersiz indeks (CI harmanlama) eklemeyi
-    /// durdurur ama kullanıcıya GecersizGirdiException yerine ham DbUpdateException (SqlException 2601) ulaşır. Yeniden
-    /// adlandırma da aynı ön denetimi kullanır.
+    /// Ön denetim veritabanı harmanlamasıyla (Turkish_CI_AS) karşılaştırır; küçük 'i' içeren adlarda da tekrar yakalanır.
+    /// Yeniden adlandırma da aynı ön denetimi kullanır.
     /// </summary>
-    [Fact(Skip = "AÇIK: KategoriRepository.AdKullaniliyorMuAsync (ToUpperInvariant/UPPER) Turkish_CI_AS'ta küçük 'i' içeren mevcut adı bulamıyor; ham DbUpdateException (2601) ulaşır.")]
+    [SqlServerFact]
     public async Task Kategori_adi_kucuk_i_iceren_tekrari_GecersizGirdi_ile_reddedilir()
     {
         using var kapsam = new SqlServisKapsami(db);
@@ -210,17 +205,17 @@ public sealed class SqlServerKisitTestleri(SqlServerVeritabani db) : IClassFixtu
 
         var hata = await Record.ExceptionAsync(() => kapsam.KategoriService.KategoriEkleAsync("Kitap"));
 
-        Assert.NotNull(hata);
+        Assert.IsType<GecersizGirdiException>(hata);
         Assert.Single(await kapsam.KategoriService.KategorileriListeleAsync());
         Assert.DoesNotContain(await db.DenetimKayitlariAsync(), x => x.VarlikAdi == "Kitap");
     }
 
     /// <summary>
-    /// Belgeleme: iki paralel ekleme de ön denetimi geçerse son garanti benzersiz indekstir. Kaybeden ham DbUpdateException
-    /// (SqlException 2601) alır; UnitOfWork yalnızca eşzamanlılık hatasını çevirir. Tek kategori ve tek denetim kaydı kalır.
+    /// Belgeleme: iki paralel ekleme de ön denetimi geçerse son garanti benzersiz indekstir. UnitOfWork benzersiz indeks ihlalini
+    /// KayitZatenVarException'a çevirir, KategoriService bunu Türkçe GecersizGirdiException yapar. Tek kategori ve tek denetim kaydı kalır.
     /// </summary>
     [SqlServerFact]
-    public async Task Ayni_kategori_iki_paralel_eklemede_tek_kayit_kalir_kaybeden_benzersiz_indeks_hatasi_alir()
+    public async Task Ayni_kategori_iki_paralel_eklemede_tek_kayit_kalir_kaybeden_GecersizGirdi_alir()
     {
         using var bariyer = new Barrier(2);
 
@@ -240,8 +235,8 @@ public sealed class SqlServerKisitTestleri(SqlServerVeritabani db) : IClassFixtu
         var sonuclar = await Task.WhenAll(Task.Run(EkleAsync), Task.Run(EkleAsync));
 
         Assert.Single(sonuclar.OfType<KategoriDto>());
-        var hata = Assert.IsType<DbUpdateException>(Assert.Single(sonuclar.OfType<Exception>()));
-        Assert.Equal(BenzersizIndeksIhlali, SqlHata.Bul(hata)?.Number);
+        var hata = Assert.IsType<GecersizGirdiException>(Assert.Single(sonuclar.OfType<Exception>()));
+        Assert.Contains("Bu ada sahip bir kategori zaten var.", hata.Message);
         Assert.Equal(1, Convert.ToInt32((await db.SatirlarAsync("SELECT COUNT(*) FROM Kategoriler"))[0][0]));
         Assert.Single(await db.DenetimKayitlariAsync(), x => x.Islem == DenetimIslemi.KategoriEklendi);
     }
