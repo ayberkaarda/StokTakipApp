@@ -91,14 +91,14 @@ public sealed class SiparisService : ISiparisService
         SiparisGecmisiSorgusu sorgu, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(sorgu);
-        if (sorgu.Baslangic.HasValue && sorgu.Bitis.HasValue && sorgu.Baslangic.Value > sorgu.Bitis.Value)
+        if (sorgu.Baslangic.HasValue && sorgu.Bitis.HasValue && sorgu.Baslangic.Value.Date > sorgu.Bitis.Value.Date)
             throw new GecersizGirdiException("Başlangıç tarihi bitiş tarihinden sonra olamaz.", nameof(sorgu.Baslangic));
 
         var urunAdi = sorgu.UrunAdi?.Trim();
         if (urunAdi?.Length > 100)
             urunAdi = urunAdi[..100];
 
-        var filtre = new SiparisFiltresi(sorgu.Baslangic, sorgu.Bitis, urunAdi);
+        var filtre = new SiparisFiltresi(sorgu.Baslangic, sorgu.Bitis, urunAdi, sorgu.UrunId);
         var sonuc = await _siparisRepository.GetGecmisSayfaAsync(
             filtre, Math.Max(1, sorgu.Sayfa), Math.Clamp(sorgu.SayfaBoyutu, 1, 200), cancellationToken);
         return sonuc.ToDto(s => s.ToDto());

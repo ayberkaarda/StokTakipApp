@@ -86,11 +86,32 @@ public class SiparisGecmisiSayfaTests
     }
 
     [Fact]
-    public async Task Ayni_gun_icinde_baslangic_saati_bitis_saatinden_sonraysa_reddedilir()
+    public async Task Ayni_gun_icinde_baslangic_saati_bitis_saatinden_sonraysa_kabul_edilir()
     {
         var sorgu = new SiparisGecmisiSorgusu(new DateTime(2026, 5, 1, 15, 0, 0), new DateTime(2026, 5, 1, 9, 0, 0));
 
+        await _servis.SiparisGecmisiSayfaGetirAsync(sorgu, _token);
+
+        await _siparisler.Received(1).GetGecmisSayfaAsync(
+            Arg.Any<SiparisFiltresi>(), Arg.Any<int>(), Arg.Any<int>(), _token);
+    }
+
+    [Fact]
+    public async Task Baslangic_gunu_bitis_gununden_sonraysa_saatten_bagimsiz_reddedilir()
+    {
+        var sorgu = new SiparisGecmisiSorgusu(new DateTime(2026, 5, 2, 0, 0, 0), new DateTime(2026, 5, 1, 23, 59, 0));
+
         await Assert.ThrowsAsync<GecersizGirdiException>(() => _servis.SiparisGecmisiSayfaGetirAsync(sorgu, _token));
+        await _siparisler.DidNotReceiveWithAnyArgs().GetGecmisSayfaAsync(default!, default, default, default);
+    }
+
+    [Fact]
+    public async Task UrunId_repositorye_iletilir()
+    {
+        await _servis.SiparisGecmisiSayfaGetirAsync(new(UrunId: 42), _token);
+
+        await _siparisler.Received(1).GetGecmisSayfaAsync(
+            Arg.Is<SiparisFiltresi>(f => f.UrunId == 42), 1, 20, _token);
     }
 
     [Fact]
