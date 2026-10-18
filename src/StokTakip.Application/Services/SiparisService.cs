@@ -132,25 +132,39 @@ public sealed class SiparisService : ISiparisService
 
     private async Task<T> TransactionIcindeAsync<T>(Func<Task<T>> islem, CancellationToken cancellationToken)
     {
-        await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken: cancellationToken);
+        var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken: cancellationToken);
+        T sonuc;
         try
         {
-            var sonuc = await islem();
+            sonuc = await islem();
             await transaction.CommitAsync(cancellationToken);
-            return sonuc;
         }
         catch
         {
+            // Asıl hata korunur: geri alma ya da kapatma hatası onu örtmemeli.
+            // Commit edilmemiş transaction kapatılırken de geri alınır.
             try
             {
                 await transaction.RollbackAsync(CancellationToken.None);
             }
-            catch
+            catch (Exception rollbackHatasi)
             {
-                // Asıl hata korunur; commit edilmemiş transaction dispose sırasında da geri alınır.
+                _logger.LogWarning(rollbackHatasi, "Transaction geri alınamadı.");
+            }
+
+            try
+            {
+                await transaction.DisposeAsync();
+            }
+            catch (Exception kapatmaHatasi)
+            {
+                _logger.LogWarning(kapatmaHatasi, "Transaction kapatılamadı.");
             }
 
             throw;
         }
+
+        await transaction.DisposeAsync();
+        return sonuc;
     }
 }

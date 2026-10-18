@@ -190,4 +190,61 @@ public class EszamanlilikTestleri
         // B artık güncel değeri görür.
         Assert.Equal(0, (await kapsamB.UrunRepository.GetByIdAsync(urunId))!.Stok);
     }
+
+    [Fact]
+    public async Task Ayni_siparis_iki_kapsamdan_silinirken_urun_guncel_siparis_eski_ise_ikincisi_EszamanlilikException_alir()
+    {
+        using var db = new TestVeritabani();
+        var urunId = await Okuma.UrunEkleAsync(db, "Kalem", 10);
+        int siparisId;
+        using (var kapsam = new ServisKapsami(db))
+        {
+            siparisId = (await kapsam.SiparisService.SiparisOlusturAsync(new(urunId, 4))).SiparisId;
+        }
+
+        using var kapsamA = new ServisKapsami(db);
+        using var kapsamB = new ServisKapsami(db);
+
+        // B, A silmeden önce siparişi (ve ürününü) okumuş.
+        var siparisB = await kapsamB.SiparisRepository.GetByIdAsync(siparisId);
+        Assert.False(siparisB!.IsDeleted);
+
+        await kapsamA.SiparisService.SiparisSilAsync(siparisId);
+
+        // B yalnızca ürünü yeniler: ürün sürümü güncel (Stok = 10), sipariş sürümü eski (IsDeleted = false).
+        // Ürünün RowVersion denetimi bu durumda geçer; ikinci iadeyi yalnızca siparişin kendi sürümü durdurabilir.
+        await kapsamB.Context.Entry(siparisB.Urun!).ReloadAsync();
+        Assert.Equal(10, siparisB.Urun!.Stok);
+        Assert.False(siparisB.IsDeleted);
+
+        await Assert.ThrowsAsync<EszamanlilikException>(() => kapsamB.SiparisService.SiparisSilAsync(siparisId));
+
+        Assert.Equal(10, (await Okuma.UrunAsync(db, urunId)).Stok);
+        Assert.True(Assert.Single(await Okuma.TumSiparislerAsync(db)).IsDeleted);
+    }
+
+    [Fact]
+    public async Task Transaction_disinda_basarisiz_stok_guncellemesinden_sonra_ayni_kapsamda_urun_eklenebilir()
+    {
+        using var db = new TestVeritabani();
+        var urunId = await Okuma.UrunEkleAsync(db, "Kalem", 10);
+        var eskiRowVersion = (await Okuma.UrunAsync(db, urunId)).RowVersion!;
+
+        using (var kapsamA = new ServisKapsami(db))
+        {
+            await kapsamA.StokService.StokGuncelleAsync(urunId, 25);
+        }
+
+        using var kapsamB = new ServisKapsami(db);
+        await Assert.ThrowsAsync<EszamanlilikException>(
+            () => kapsamB.StokService.StokGuncelleAsync(urunId, 3, beklenenRowVersion: eskiRowVersion));
+
+        // ChangeTracker temizlenmeseydi bu kayıt eski RowVersion'lı stok güncellemesini yeniden gönderip yine çakışırdı.
+        var yeni = await kapsamB.StokService.UrunEkleAsync(new("Defter", 5));
+
+        Assert.True(yeni.UrunId > 0);
+        Assert.Equal(5, (await Okuma.UrunAsync(db, yeni.UrunId)).Stok);
+        Assert.Equal(25, (await Okuma.UrunAsync(db, urunId)).Stok);
+        Assert.Equal(25, (await kapsamB.UrunRepository.GetByIdAsync(urunId))!.Stok);
+    }
 }

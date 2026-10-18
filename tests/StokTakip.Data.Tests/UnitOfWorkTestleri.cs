@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using StokTakip.Data.Tests.Altyapi;
 using StokTakip.Domain.Entities;
 
@@ -15,9 +16,14 @@ public class UnitOfWorkTestleri
         using var kapsam = new ServisKapsami(db);
         await using (await kapsam.UnitOfWork.BeginTransactionAsync())
         {
-            // Kaydedilmemiş değişiklik: stok düşüldü, sipariş eklendi; commit yok.
+            // Stok düşüldü, sipariş eklendi ve SQL'e yazıldı; commit yok.
             var urun = (await kapsam.UrunRepository.GetByIdAsync(urunId))!;
             await kapsam.SiparisRepository.AddAsync(Siparis.Olustur(urun, 4, DateTime.Now));
+            await kapsam.UnitOfWork.SaveChangesAsync();
+
+            // Transaction içinden bakıldığında değişiklikler veritabanında.
+            Assert.Equal(6, (await kapsam.Context.Urunler.AsNoTracking().SingleAsync(x => x.UrunId == urunId)).Stok);
+            Assert.Equal(1, await kapsam.Context.Siparisler.AsNoTracking().CountAsync());
         }
 
         await kapsam.StokService.UrunEkleAsync(new("Defter", 1));
