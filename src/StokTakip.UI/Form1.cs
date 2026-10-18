@@ -52,6 +52,7 @@ namespace StokTakip
         public event EventHandler SiparisVerIstendi;
         public event EventHandler SiparisGecmisiIstendi;
         public event EventHandler<UrunDto> UrunSecildi;
+        public event EventHandler Kapandi;
 
         string IAnaFormView.UrunAdi
         {
@@ -250,6 +251,12 @@ namespace StokTakip
         {
             Theme.EkranaSigdir(this);
             Yuklendi?.Invoke(this, EventArgs.Empty);
+        }
+
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            Kapandi?.Invoke(this, EventArgs.Empty);
+            base.OnFormClosed(e);
         }
 
         private void btnUrunEkle_Click(object sender, EventArgs e) => UrunEkleIstendi?.Invoke(this, EventArgs.Empty);

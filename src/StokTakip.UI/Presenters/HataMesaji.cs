@@ -16,7 +16,7 @@ namespace StokTakip.Presenters
             }
             else
             {
-                logger.LogError(ex, "Beklenmeyen hata: {HataTuru}", ex.GetType().Name);
+                logger.LogError(Gunluk.Ayrinti(ex, logger.IsEnabled(LogLevel.Debug)), "Beklenmeyen hata: {Hata}", Gunluk.HataOzeti(ex));
             }
         }
 

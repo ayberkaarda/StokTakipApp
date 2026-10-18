@@ -13,6 +13,7 @@ namespace StokTakip.Views
         event EventHandler SiparisVerIstendi;
         event EventHandler SiparisGecmisiIstendi;
         event EventHandler<UrunDto> UrunSecildi;
+        event EventHandler Kapandi;
 
         string UrunAdi { get; set; }
 

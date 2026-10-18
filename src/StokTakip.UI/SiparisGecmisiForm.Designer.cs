@@ -45,6 +45,9 @@
             this.dgvSiparisGecmisi = new System.Windows.Forms.DataGridView();
             this.lblBosSonuc = new System.Windows.Forms.Label();
             this.tlpAlt = new System.Windows.Forms.TableLayoutPanel();
+            this.flpSayfalama = new System.Windows.Forms.FlowLayoutPanel();
+            this.flpSayfaGezinme = new System.Windows.Forms.FlowLayoutPanel();
+            this.flpSayfaBoyutu = new System.Windows.Forms.FlowLayoutPanel();
             this.btnOncekiSayfa = new System.Windows.Forms.Button();
             this.lblSayfaBilgisi = new System.Windows.Forms.Label();
             this.btnSonrakiSayfa = new System.Windows.Forms.Button();
@@ -74,6 +77,9 @@
             ((System.ComponentModel.ISupportInitialize)(this.dgvSiparisGecmisi)).BeginInit();
             this.dgvSiparisGecmisi.SuspendLayout();
             this.tlpAlt.SuspendLayout();
+            this.flpSayfalama.SuspendLayout();
+            this.flpSayfaGezinme.SuspendLayout();
+            this.flpSayfaBoyutu.SuspendLayout();
             this.tlpFiltre.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.bsSiparisler)).BeginInit();
             this.SuspendLayout();
@@ -226,6 +232,7 @@
             this.pnlListe.Size = new System.Drawing.Size(900, 484);
             this.pnlListe.TabIndex = 0;
             this.pnlListe.Tag = "card";
+            this.pnlListe.Layout += new System.Windows.Forms.LayoutEventHandler(this.pnlListe_Layout);
             //
             // lblListeBaslik
             //
@@ -393,28 +400,57 @@
             //
             this.tlpAlt.AutoSize = true;
             this.tlpAlt.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-            this.tlpAlt.ColumnCount = 7;
-            this.tlpAlt.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
-            this.tlpAlt.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
-            this.tlpAlt.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
-            this.tlpAlt.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
-            this.tlpAlt.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
+            this.tlpAlt.ColumnCount = 2;
             this.tlpAlt.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.tlpAlt.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
-            this.tlpAlt.Controls.Add(this.btnOncekiSayfa, 0, 0);
-            this.tlpAlt.Controls.Add(this.lblSayfaBilgisi, 1, 0);
-            this.tlpAlt.Controls.Add(this.btnSonrakiSayfa, 2, 0);
-            this.tlpAlt.Controls.Add(this.lblSayfaBoyutu, 3, 0);
-            this.tlpAlt.Controls.Add(this.cmbSayfaBoyutu, 4, 0);
-            this.tlpAlt.Controls.Add(this.btnSiparisSil, 6, 0);
+            this.tlpAlt.Controls.Add(this.flpSayfalama, 0, 0);
+            this.tlpAlt.Controls.Add(this.btnSiparisSil, 1, 0);
             this.tlpAlt.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.tlpAlt.Location = new System.Drawing.Point(16, 424);
             this.tlpAlt.Name = "tlpAlt";
             this.tlpAlt.Padding = new System.Windows.Forms.Padding(0, 12, 0, 0);
-            this.tlpAlt.RowCount = 1;
+            this.tlpAlt.RowCount = 2;
+            this.tlpAlt.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.tlpAlt.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.tlpAlt.Size = new System.Drawing.Size(868, 48);
             this.tlpAlt.TabIndex = 4;
+            //
+            // flpSayfalama
+            //
+            this.flpSayfalama.AutoSize = true;
+            this.flpSayfalama.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+            this.flpSayfalama.Controls.Add(this.flpSayfaGezinme);
+            this.flpSayfalama.Controls.Add(this.flpSayfaBoyutu);
+            this.flpSayfalama.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.flpSayfalama.Margin = new System.Windows.Forms.Padding(0);
+            this.flpSayfalama.Name = "flpSayfalama";
+            this.flpSayfalama.Size = new System.Drawing.Size(698, 36);
+            this.flpSayfalama.TabIndex = 0;
+            //
+            // flpSayfaGezinme
+            //
+            this.flpSayfaGezinme.AutoSize = true;
+            this.flpSayfaGezinme.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+            this.flpSayfaGezinme.Controls.Add(this.btnOncekiSayfa);
+            this.flpSayfaGezinme.Controls.Add(this.lblSayfaBilgisi);
+            this.flpSayfaGezinme.Controls.Add(this.btnSonrakiSayfa);
+            this.flpSayfaGezinme.Margin = new System.Windows.Forms.Padding(0, 0, 20, 0);
+            this.flpSayfaGezinme.Name = "flpSayfaGezinme";
+            this.flpSayfaGezinme.Size = new System.Drawing.Size(368, 36);
+            this.flpSayfaGezinme.TabIndex = 0;
+            this.flpSayfaGezinme.WrapContents = false;
+            //
+            // flpSayfaBoyutu
+            //
+            this.flpSayfaBoyutu.AutoSize = true;
+            this.flpSayfaBoyutu.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+            this.flpSayfaBoyutu.Controls.Add(this.lblSayfaBoyutu);
+            this.flpSayfaBoyutu.Controls.Add(this.cmbSayfaBoyutu);
+            this.flpSayfaBoyutu.Margin = new System.Windows.Forms.Padding(0);
+            this.flpSayfaBoyutu.Name = "flpSayfaBoyutu";
+            this.flpSayfaBoyutu.Size = new System.Drawing.Size(162, 36);
+            this.flpSayfaBoyutu.TabIndex = 1;
+            this.flpSayfaBoyutu.WrapContents = false;
             //
             // btnOncekiSayfa
             //
@@ -458,7 +494,7 @@
             //
             this.lblSayfaBoyutu.Anchor = System.Windows.Forms.AnchorStyles.Left;
             this.lblSayfaBoyutu.AutoSize = true;
-            this.lblSayfaBoyutu.Margin = new System.Windows.Forms.Padding(20, 0, 6, 0);
+            this.lblSayfaBoyutu.Margin = new System.Windows.Forms.Padding(0, 0, 6, 0);
             this.lblSayfaBoyutu.Name = "lblSayfaBoyutu";
             this.lblSayfaBoyutu.TabIndex = 3;
             this.lblSayfaBoyutu.Tag = "hint";
@@ -473,7 +509,7 @@
             25,
             50,
             100});
-            this.cmbSayfaBoyutu.Margin = new System.Windows.Forms.Padding(0, 0, 12, 0);
+            this.cmbSayfaBoyutu.Margin = new System.Windows.Forms.Padding(0, 5, 0, 6);
             this.cmbSayfaBoyutu.Name = "cmbSayfaBoyutu";
             this.cmbSayfaBoyutu.Size = new System.Drawing.Size(64, 25);
             this.cmbSayfaBoyutu.TabIndex = 4;
@@ -481,9 +517,9 @@
             //
             // btnSiparisSil
             //
-            this.btnSiparisSil.Anchor = System.Windows.Forms.AnchorStyles.Right;
+            this.btnSiparisSil.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.btnSiparisSil.Enabled = false;
-            this.btnSiparisSil.Margin = new System.Windows.Forms.Padding(0);
+            this.btnSiparisSil.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this.btnSiparisSil.Name = "btnSiparisSil";
             this.btnSiparisSil.Size = new System.Drawing.Size(170, 36);
             this.btnSiparisSil.TabIndex = 6;
@@ -524,6 +560,12 @@
             this.pnlListe.PerformLayout();
             this.dgvSiparisGecmisi.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.dgvSiparisGecmisi)).EndInit();
+            this.flpSayfaGezinme.ResumeLayout(false);
+            this.flpSayfaGezinme.PerformLayout();
+            this.flpSayfaBoyutu.ResumeLayout(false);
+            this.flpSayfaBoyutu.PerformLayout();
+            this.flpSayfalama.ResumeLayout(false);
+            this.flpSayfalama.PerformLayout();
             this.tlpAlt.ResumeLayout(false);
             this.tlpAlt.PerformLayout();
             this.tlpFiltre.ResumeLayout(false);
@@ -562,6 +604,9 @@
         private System.Windows.Forms.DataGridView dgvSiparisGecmisi;
         private System.Windows.Forms.Label lblBosSonuc;
         private System.Windows.Forms.TableLayoutPanel tlpAlt;
+        private System.Windows.Forms.FlowLayoutPanel flpSayfalama;
+        private System.Windows.Forms.FlowLayoutPanel flpSayfaGezinme;
+        private System.Windows.Forms.FlowLayoutPanel flpSayfaBoyutu;
         private System.Windows.Forms.Button btnOncekiSayfa;
         private System.Windows.Forms.Label lblSayfaBilgisi;
         private System.Windows.Forms.Button btnSonrakiSayfa;

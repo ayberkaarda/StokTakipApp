@@ -28,6 +28,7 @@ namespace StokTakip.Presenters
         private IAnaFormView _view;
         private bool _mesgul;
         private bool _yenilemeBekliyor;
+        private bool _kapandi;
 
         public AnaFormPresenter(IServiceScopeFactory scopeFactory, IStokDegisiklikBildirimi bildirim)
             : this(scopeFactory, bildirim, NullLogger<AnaFormPresenter>.Instance)
@@ -56,7 +57,20 @@ namespace StokTakip.Presenters
             _view.SiparisVerIstendi += async (s, e) => await CalistirAsync(SiparisVerAsync);
             _view.SiparisGecmisiIstendi += (s, e) => _view.SiparisGecmisiniAc();
             _view.UrunSecildi += (s, urun) => UrunSec(urun);
-            _bildirim.UrunlerDegisti += async (s, e) => await YenileAsync();
+            _view.Kapandi += (s, e) =>
+            {
+                _kapandi = true;
+                _bildirim.UrunlerDegisti -= UrunlerDegisti;
+            };
+            _bildirim.UrunlerDegisti += UrunlerDegisti;
+        }
+
+        private async void UrunlerDegisti(object sender, EventArgs e)
+        {
+            if (!_kapandi)
+            {
+                await YenileAsync();
+            }
         }
 
         // Tüm işlemler ve yenilemeler sırayla çalışır; meşgulken gelen bildirim, işlem bitince tek yenilemeye dönüşür.

@@ -9,6 +9,7 @@ namespace StokTakip.Views
         event EventHandler SiparisSilIstendi;
         event EventHandler Kapandi;
         event EventHandler FiltreDegisti;
+        event EventHandler AramaDegisiyor;
         event EventHandler OncekiSayfaIstendi;
         event EventHandler SonrakiSayfaIstendi;
 

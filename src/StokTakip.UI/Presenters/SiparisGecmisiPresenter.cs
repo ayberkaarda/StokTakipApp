@@ -25,6 +25,7 @@ namespace StokTakip.Presenters
         private CancellationTokenSource _sorguIptal;
         private int _sorguNo;
         private int _sayfa = 1;
+        private int? _bekleyenSayfa;
         private int _toplamSayfa;
         private bool _ozetBekliyor = true;
         private bool _siliniyor;
@@ -52,25 +53,22 @@ namespace StokTakip.Presenters
 
             _view = view ?? throw new ArgumentNullException(nameof(view));
             _view.Yuklendi += async (s, e) => await HataGostererekYukleAsync();
-            _view.FiltreDegisti += async (s, e) =>
-            {
-                _sayfa = 1;
-                await HataGostererekYukleAsync();
-            };
+            _view.FiltreDegisti += async (s, e) => await HataGostererekYukleAsync(1);
+            _view.AramaDegisiyor += (s, e) => BekleyenSorguyuIptalEt();
             _view.OncekiSayfaIstendi += async (s, e) =>
             {
-                if (_sayfa > 1)
+                int hedef = (_bekleyenSayfa ?? _sayfa) - 1;
+                if (hedef >= 1)
                 {
-                    _sayfa--;
-                    await HataGostererekYukleAsync();
+                    await HataGostererekYukleAsync(hedef);
                 }
             };
             _view.SonrakiSayfaIstendi += async (s, e) =>
             {
-                if (_sayfa < _toplamSayfa)
+                int hedef = (_bekleyenSayfa ?? _sayfa) + 1;
+                if (hedef <= _toplamSayfa)
                 {
-                    _sayfa++;
-                    await HataGostererekYukleAsync();
+                    await HataGostererekYukleAsync(hedef);
                 }
             };
             _view.SiparisSilIstendi += async (s, e) => await SiparisSilAsync();
@@ -93,11 +91,25 @@ namespace StokTakip.Presenters
             await HataGostererekYukleAsync();
         }
 
-        private async Task HataGostererekYukleAsync()
+        // Arama metni değişirken süren sorgu, eski metnin sonucunu yazmasın diye hemen iptal edilir.
+        private void BekleyenSorguyuIptalEt()
+        {
+            if (_sorguIptal == null)
+            {
+                return;
+            }
+
+            _sorguIptal.Cancel();
+            _sorguIptal = null;
+            _bekleyenSayfa = null;
+            _sorguNo++;
+        }
+
+        private async Task HataGostererekYukleAsync(int? sayfa = null)
         {
             try
             {
-                await YukleAsync();
+                await YukleAsync(sayfa);
             }
             catch (Exception ex)
             {
@@ -110,7 +122,8 @@ namespace StokTakip.Presenters
         }
 
         // Her yeni sorgu bir öncekini iptal eder; yalnızca en son sorgunun sonucu gösterilir.
-        private async Task<bool> YukleAsync()
+        // Sayfa numarası yalnızca sorgu başarıyla dönünce kalıcı olur; hata olursa son gösterilen sayfada kalınır.
+        private async Task<bool> YukleAsync(int? istenenSayfa = null)
         {
             if (Kapandi)
             {
@@ -121,12 +134,14 @@ namespace StokTakip.Presenters
             var iptal = CancellationTokenSource.CreateLinkedTokenSource(_kapanis.Token);
             _sorguIptal = iptal;
             int sorguNo = ++_sorguNo;
+            int hedefSayfa = istenenSayfa ?? _sayfa;
+            _bekleyenSayfa = hedefSayfa;
             bool ozetDahil = _ozetBekliyor;
             _view.Yukleniyor = true;
 
             try
             {
-                SiparisGecmisiSorgusu sorgu = SorguOlustur();
+                SiparisGecmisiSorgusu sorgu = SorguOlustur(hedefSayfa);
                 CancellationToken token = iptal.Token;
                 (SayfaliSonucDto<SiparisDto> sonuc, SiparisOzetiDto ozet) = await _scopeFactory
                     .CalistirAsync<ISiparisService, (SayfaliSonucDto<SiparisDto>, SiparisOzetiDto)>(async s =>
@@ -141,7 +156,7 @@ namespace StokTakip.Presenters
                         return (sayfa, o);
                     });
 
-                if (iptal.IsCancellationRequested || Kapandi)
+                if (iptal.IsCancellationRequested || sorguNo != _sorguNo || Kapandi)
                 {
                     return false;
                 }
@@ -166,6 +181,7 @@ namespace StokTakip.Presenters
                 if (ReferenceEquals(_sorguIptal, iptal))
                 {
                     _sorguIptal = null;
+                    _bekleyenSayfa = null;
                 }
 
                 iptal.Dispose();
@@ -176,7 +192,7 @@ namespace StokTakip.Presenters
             }
         }
 
-        private SiparisGecmisiSorgusu SorguOlustur()
+        private SiparisGecmisiSorgusu SorguOlustur(int sayfa)
         {
             string arama = _view.AramaMetni?.Trim();
             DateTime? baslangic = _view.Baslangic?.Date;
@@ -190,7 +206,7 @@ namespace StokTakip.Presenters
                 baslangic,
                 bitis,
                 string.IsNullOrEmpty(arama) ? null : arama,
-                _sayfa,
+                sayfa,
                 _view.SayfaBoyutu);
         }
 
