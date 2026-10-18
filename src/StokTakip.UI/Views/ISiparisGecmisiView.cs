@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using StokTakip.Application.Dtos;
 
 namespace StokTakip.Views
@@ -12,8 +13,20 @@ namespace StokTakip.Views
         event EventHandler AramaDegisiyor;
         event EventHandler OncekiSayfaIstendi;
         event EventHandler SonrakiSayfaIstendi;
+        event EventHandler DisaAktarIstendi;
+        event EventHandler DisaAktarimIptalIstendi;
 
         bool Kapali { get; }
+
+        bool DisaAktariliyor { set; }
+
+        /// <summary>Kullanıcıdan hedef dosyayı ister ve yazmak için açar; vazgeçilirse null.</summary>
+        Stream DisaAktarimHedefiAc(string varsayilanDosyaAdi);
+
+        /// <summary>Akışı kapatır; aktarım tamamlanmadıysa yarım kalan dosyayı siler. Form kapalıyken de çağrılabilir.</summary>
+        void DisaAktarimHedefiniKapat(Stream hedef, bool tamamlandi);
+
+        void DisaAktarimIlerlemesiGoster(int yazilan, int toplam);
 
         int? SeciliSiparisId { get; }
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
+using StokTakip.Domain;
 
 namespace StokTakip
 {
@@ -68,13 +69,9 @@ namespace StokTakip
             public const string Primary = "primary";
             public const string Secondary = "secondary";
             public const string Danger = "danger";
+            public const string Badge = "badge";
+            public const string Tab = "tab";
         }
-
-        /// <summary>Bu değer ve altı "kritik" stok olarak gösterilir.</summary>
-        public const int KritikStokEsigi = 10;
-
-        /// <summary>Bu değer ve altı "düşük" stok olarak gösterilir.</summary>
-        public const int DusukStokEsigi = 25;
 
         private const string FontFamily = "Segoe UI";
         private const string FontFamilySemibold = "Segoe UI Semibold";
@@ -102,7 +99,13 @@ namespace StokTakip
                 { "SiparisID", "Sipariş No" },
                 { "Adet", "Adet" },
                 { "Tarih", "Tarih" },
+                { "KategoriAdi", "Kategori" },
+                { "DusukStokEsigi", "Eşik" },
+                { "ToplamAdet", "Toplam Adet" },
+                { "SiparisSayisi", "Sipariş Sayısı" },
             };
+
+        private static readonly HashSet<DataGridView> SunumUygulanan = new HashSet<DataGridView>();
 
         /// <summary>Formun ve tüm alt kontrollerinin görünümünü rollere göre uygular.</summary>
         public static void Apply(Form form)
@@ -202,6 +205,14 @@ namespace StokTakip
                 case DateTimePicker dateTimePicker:
                     dateTimePicker.Font = InputFont;
                     break;
+                case NumericUpDown numericUpDown:
+                    numericUpDown.Font = InputFont;
+                    numericUpDown.BackColor = Palette.Surface;
+                    numericUpDown.ForeColor = Palette.Text;
+                    break;
+                case RadioButton radio when role == Roles.Tab:
+                    StyleTab(radio);
+                    break;
                 case CheckBox checkBox:
                     checkBox.Font = BodyFont;
                     checkBox.ForeColor = Palette.TextSecondary;
@@ -289,13 +300,20 @@ namespace StokTakip
                     label.ForeColor = Palette.Text;
                     break;
                 case Roles.LegendCritical:
-                    StyleLegend(label, Palette.Danger, $"Kritik stok (≤ {KritikStokEsigi})");
+                    StyleLegend(label, Palette.Danger, "Kritik: stok ≤ eşiğin yarısı");
                     break;
                 case Roles.LegendLow:
-                    StyleLegend(label, Palette.Warning, $"Düşük stok (≤ {DusukStokEsigi})");
+                    StyleLegend(label, Palette.Warning, "Düşük: stok ≤ eşik");
                     break;
                 case Roles.LegendOk:
-                    StyleLegend(label, Palette.Success, "Yeterli stok");
+                    StyleLegend(label, Palette.Success, "Yeterli: stok > eşik");
+                    break;
+                case Roles.Badge:
+                    label.Font = LabelFont;
+                    label.ForeColor = Palette.Warning;
+                    label.BackColor = Palette.WarningSoft;
+                    label.Cursor = Cursors.Hand;
+                    label.Paint += PaintBadgeBorder;
                     break;
                 default:
                     label.ForeColor = Palette.Text;
@@ -308,6 +326,39 @@ namespace StokTakip
             label.Font = SmallFont;
             label.ForeColor = color;
             label.Text = "● " + text;
+        }
+
+        private static void PaintBadgeBorder(object sender, PaintEventArgs e)
+        {
+            var label = (Control)sender;
+            using (var pen = new Pen(Color.FromArgb(253, 230, 138)))
+            {
+                e.Graphics.DrawRectangle(pen, 0, 0, label.ClientSize.Width - 1, label.ClientSize.Height - 1);
+            }
+        }
+
+        private static void StyleTab(RadioButton radio)
+        {
+            radio.Appearance = Appearance.Button;
+            radio.FlatStyle = FlatStyle.Flat;
+            radio.UseVisualStyleBackColor = false;
+            radio.Font = ButtonFont;
+            radio.Cursor = Cursors.Hand;
+            radio.TextAlign = ContentAlignment.MiddleCenter;
+            radio.BackColor = Palette.Surface;
+            radio.FlatAppearance.BorderSize = 1;
+            radio.FlatAppearance.CheckedBackColor = Palette.PrimarySoft;
+            radio.FlatAppearance.MouseOverBackColor = Palette.Neutral;
+            radio.FlatAppearance.MouseDownBackColor = Palette.NeutralPressed;
+
+            void Guncelle()
+            {
+                radio.ForeColor = radio.Checked ? Palette.PrimaryPressed : Palette.TextSecondary;
+                radio.FlatAppearance.BorderColor = radio.Checked ? Palette.Primary : Palette.BorderStrong;
+            }
+
+            Guncelle();
+            radio.CheckedChanged += (s, e) => Guncelle();
         }
 
         private static void StyleButton(Button button, string role)
@@ -382,53 +433,76 @@ namespace StokTakip
         /// <summary>Veri bağlandıktan sonra sütun başlıklarını, hizalamayı ve biçimleri ayarlar.</summary>
         private static void ApplyColumnPresentation(DataGridView grid)
         {
-            foreach (DataGridViewColumn column in grid.Columns)
+            if (grid.Columns.Count == 0 || !SunumUygulanan.Add(grid))
             {
-                string key = string.IsNullOrEmpty(column.DataPropertyName) ? column.Name : column.DataPropertyName;
-                if (ColumnHeaders.TryGetValue(key, out string header))
-                {
-                    column.HeaderText = header;
-                }
+                return;
+            }
 
-                DataGridViewCellStyle headerStyle = grid.ColumnHeadersDefaultCellStyle;
-                column.MinimumWidth = Math.Max(2, TextRenderer.MeasureText(column.HeaderText, headerStyle.Font ?? grid.Font).Width
-                    + headerStyle.Padding.Horizontal + Scale(grid, 12));
+            // Fill modunda sütunların MinimumWidth toplamı ızgara genişliğini aşarsa WinForms
+            // DataGridViewBand.Thickness içinde NullReferenceException atar; en küçük genişlikler
+            // otomatik boyutlandırma kapalıyken verilir, Fill sonra yeniden açılır (sığmazsa yatay kaydırma çıkar).
+            DataGridViewAutoSizeColumnsMode boyutlandirma = grid.AutoSizeColumnsMode;
+            grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+            try
+            {
+                foreach (DataGridViewColumn column in grid.Columns)
+                {
+                    ApplyColumnPresentation(grid, column);
+                }
+            }
+            finally
+            {
+                grid.AutoSizeColumnsMode = boyutlandirma;
+                SunumUygulanan.Remove(grid);
+            }
+        }
 
-                Type type = column.ValueType;
-                bool isId = key.EndsWith("ID", StringComparison.OrdinalIgnoreCase);
+        private static void ApplyColumnPresentation(DataGridView grid, DataGridViewColumn column)
+        {
+            string key = string.IsNullOrEmpty(column.DataPropertyName) ? column.Name : column.DataPropertyName;
+            if (ColumnHeaders.TryGetValue(key, out string header))
+            {
+                column.HeaderText = header;
+            }
 
-                if (isId)
-                {
-                    column.FillWeight = 45;
-                    column.DefaultCellStyle.ForeColor = Palette.TextMuted;
-                }
-                else if (type == typeof(DateTime))
-                {
-                    column.FillWeight = 90;
-                    column.DefaultCellStyle.Format = "dd.MM.yyyy HH:mm";
-                }
-                else if (IsNumeric(type))
-                {
-                    column.FillWeight = 60;
-                    column.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
-                    column.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
-                }
-                else
-                {
-                    column.FillWeight = 140;
-                }
+            DataGridViewCellStyle headerStyle = grid.ColumnHeadersDefaultCellStyle;
+            column.MinimumWidth = Math.Max(2, TextRenderer.MeasureText(column.HeaderText, headerStyle.Font ?? grid.Font).Width
+                + headerStyle.Padding.Horizontal + Scale(grid, 12));
+
+            Type type = Nullable.GetUnderlyingType(column.ValueType ?? typeof(object)) ?? column.ValueType;
+            bool isId = key.EndsWith("ID", StringComparison.OrdinalIgnoreCase);
+
+            if (isId)
+            {
+                column.FillWeight = 45;
+                column.DefaultCellStyle.ForeColor = Palette.TextMuted;
+            }
+            else if (type == typeof(DateTime))
+            {
+                column.FillWeight = 90;
+                column.DefaultCellStyle.Format = "dd.MM.yyyy HH:mm";
+            }
+            else if (IsNumeric(type))
+            {
+                column.FillWeight = 60;
+                column.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+                column.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+            }
+            else
+            {
+                column.FillWeight = 140;
             }
         }
 
         /// <summary>
-        /// Belirtilen sütundaki stok değerlerini eşiklere göre renklendirir ve
-        /// yanına durum etiketi ekler. Hücrenin gerçek değeri değişmez.
+        /// Belirtilen sütundaki stok değerlerini satırın stok durumuna (ürün eşiğine göre) renklendirir
+        /// ve yanına durum etiketi ekler. Hücrenin gerçek değeri değişmez.
         /// </summary>
-        public static void EnableStockHighlight(DataGridView grid, string columnName)
+        public static void EnableStockHighlight(DataGridView grid, string columnName, Func<object, StokDurumu?> durumGetir)
         {
             grid.CellFormatting += (s, e) =>
             {
-                if (e.RowIndex < 0 || e.Value == null || e.Value == DBNull.Value)
+                if (e.RowIndex < 0 || e.RowIndex >= grid.Rows.Count || e.Value == null || e.Value == DBNull.Value)
                 {
                     return;
                 }
@@ -439,23 +513,14 @@ namespace StokTakip
                     return;
                 }
 
-                int stok;
-                try
+                switch (durumGetir(grid.Rows[e.RowIndex].DataBoundItem))
                 {
-                    stok = Convert.ToInt32(e.Value);
-                }
-                catch (FormatException)
-                {
-                    return;
-                }
-
-                if (stok <= KritikStokEsigi)
-                {
-                    SetStatusStyle(e, Palette.Danger, Palette.DangerSoft, stok + "  ·  Kritik");
-                }
-                else if (stok <= DusukStokEsigi)
-                {
-                    SetStatusStyle(e, Palette.Warning, Palette.WarningSoft, stok + "  ·  Düşük");
+                    case StokDurumu.Kritik:
+                        SetStatusStyle(e, Palette.Danger, Palette.DangerSoft, e.Value + "  ·  Kritik");
+                        break;
+                    case StokDurumu.Dusuk:
+                        SetStatusStyle(e, Palette.Warning, Palette.WarningSoft, e.Value + "  ·  Düşük");
+                        break;
                 }
             };
         }
