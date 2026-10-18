@@ -22,6 +22,28 @@ namespace StokTakip.Data.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("StokTakip.Domain.Entities.Kategori", b =>
+                {
+                    b.Property<int>("KategoriId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("KategoriID");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("KategoriId"));
+
+                    b.Property<string>("Ad")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("KategoriId");
+
+                    b.HasIndex("Ad")
+                        .IsUnique();
+
+                    b.ToTable("Kategoriler", (string)null);
+                });
+
             modelBuilder.Entity("StokTakip.Domain.Entities.Siparis", b =>
                 {
                     b.Property<int>("SiparisId")
@@ -72,6 +94,14 @@ namespace StokTakip.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("UrunId"));
 
+                    b.Property<int>("DusukStokEsigi")
+                        .HasColumnType("int")
+                        .HasDefaultValue(10);
+
+                    b.Property<int?>("KategoriId")
+                        .HasColumnType("int")
+                        .HasColumnName("KategoriID");
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
@@ -87,8 +117,12 @@ namespace StokTakip.Data.Migrations
 
                     b.HasKey("UrunId");
 
+                    b.HasIndex("KategoriId");
+
                     b.ToTable("Urunler", null, t =>
                         {
+                            t.HasCheckConstraint("CK_Urunler_DusukStokEsigi", "[DusukStokEsigi] >= 0");
+
                             t.HasCheckConstraint("CK_Urunler_Stok", "[Stok] >= 0");
                         });
                 });
@@ -102,6 +136,16 @@ namespace StokTakip.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Urun");
+                });
+
+            modelBuilder.Entity("StokTakip.Domain.Entities.Urun", b =>
+                {
+                    b.HasOne("StokTakip.Domain.Entities.Kategori", "Kategori")
+                        .WithMany()
+                        .HasForeignKey("KategoriId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Kategori");
                 });
 #pragma warning restore 612, 618
         }

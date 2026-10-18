@@ -13,17 +13,35 @@ public sealed class StokService : IStokService
     private const string UrunKayitTuru = "Ürün";
 
     private readonly IUrunRepository _urunRepository;
+    private readonly IKategoriRepository? _kategoriRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<StokService> _logger;
 
+    /// <summary>Kategori deposu olmadan; kategori atayan istekler <see cref="InvalidOperationException"/> verir.</summary>
     public StokService(IUrunRepository urunRepository, IUnitOfWork unitOfWork)
         : this(urunRepository, unitOfWork, NullLogger<StokService>.Instance)
     {
     }
 
+    /// <summary>Kategori deposu olmadan; kategori atayan istekler <see cref="InvalidOperationException"/> verir.</summary>
     public StokService(IUrunRepository urunRepository, IUnitOfWork unitOfWork, ILogger<StokService> logger)
+        : this(urunRepository, null, unitOfWork, logger)
+    {
+    }
+
+    public StokService(IUrunRepository urunRepository, IKategoriRepository kategoriRepository, IUnitOfWork unitOfWork)
+        : this(urunRepository, kategoriRepository ?? throw new ArgumentNullException(nameof(kategoriRepository)), unitOfWork, NullLogger<StokService>.Instance)
+    {
+    }
+
+    public StokService(
+        IUrunRepository urunRepository,
+        IKategoriRepository? kategoriRepository,
+        IUnitOfWork unitOfWork,
+        ILogger<StokService> logger)
     {
         _urunRepository = urunRepository ?? throw new ArgumentNullException(nameof(urunRepository));
+        _kategoriRepository = kategoriRepository;
         _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -51,7 +69,13 @@ public sealed class StokService : IStokService
 
         try
         {
-            var urun = new Urun(istek.UrunAdi, istek.Stok);
+            // Ad, stok ve eşik kurucuda doğrulanır; kategori ancak girdiler geçerliyse aranır.
+            var urun = new Urun(istek.UrunAdi, istek.Stok, istek.DusukStokEsigi);
+            if (istek.KategoriId is { } kategoriId)
+            {
+                urun.KategoriyeAta(await KategoriyiBulAsync(kategoriId, cancellationToken));
+            }
+
             await _urunRepository.AddAsync(urun, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             _logger.LogInformation("Ürün eklendi. UrunId={UrunId}", urun.UrunId);
@@ -69,11 +93,19 @@ public sealed class StokService : IStokService
 
         try
         {
-            // Ad ve stok birlikte doğrulanır ki izlenen varlık yarım güncellenmesin.
+            // Tüm alanlar varlığa dokunmadan önce doğrulanır ki izlenen varlık yarım güncellenmesin.
             AdDogrula(istek.UrunAdi);
             StokDogrula(istek.Stok);
+            if (istek.DusukStokEsigi is { } esik)
+            {
+                Urun.EsikDogrula(esik);
+            }
 
             var urun = await UrunuBulAsync(istek.UrunId, cancellationToken);
+            var kategori = istek.KategoriGuncellensin && istek.KategoriId is { } kategoriId
+                ? await KategoriyiBulAsync(kategoriId, cancellationToken)
+                : null;
+
             if (beklenenRowVersion is not null)
             {
                 _urunRepository.SetBeklenenRowVersion(urun, beklenenRowVersion);
@@ -81,6 +113,16 @@ public sealed class StokService : IStokService
 
             urun.AdiDegistir(istek.UrunAdi);
             urun.StokAyarla(istek.Stok);
+            if (istek.DusukStokEsigi is { } yeniEsik)
+            {
+                urun.DusukStokEsiginiAyarla(yeniEsik);
+            }
+
+            if (istek.KategoriGuncellensin)
+            {
+                urun.KategoriyeAta(kategori);
+            }
+
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             _logger.LogInformation("Ürün güncellendi. UrunId={UrunId}", urun.UrunId);
             return urun.ToDto();
@@ -144,6 +186,18 @@ public sealed class StokService : IStokService
     {
         var urun = urunId > 0 ? await _urunRepository.GetByIdAsync(urunId, cancellationToken) : null;
         return urun ?? throw new KayitBulunamadiException(UrunKayitTuru, urunId);
+    }
+
+    /// <exception cref="GecersizGirdiException">Kategori yoksa; seçim alanı hatası olarak raporlanır.</exception>
+    private async Task<Kategori> KategoriyiBulAsync(int kategoriId, CancellationToken cancellationToken)
+    {
+        if (_kategoriRepository is null)
+        {
+            throw new InvalidOperationException("Kategori ataması için StokService'e IKategoriRepository verilmelidir.");
+        }
+
+        var kategori = kategoriId > 0 ? await _kategoriRepository.GetByIdAsync(kategoriId, cancellationToken) : null;
+        return kategori ?? throw new GecersizGirdiException("Seçilen kategori bulunamadı.", nameof(Urun.KategoriId));
     }
 
     private static void AdDogrula(string? urunAdi)
