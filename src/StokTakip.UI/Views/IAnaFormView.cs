@@ -20,7 +20,7 @@ namespace StokTakip.Views
 
         string SiparisAdetMetni { get; set; }
 
-        int? SeciliUrunId { get; }
+        UrunDto SeciliUrun { get; }
 
         int? SiparisUrunId { get; set; }
 
