@@ -16,6 +16,10 @@ public enum Yetki
     KategoriYonetimi,
     KullaniciYonetimi,
     CsvAktarim,
+
+    /// <summary>Düşük stok eşiğini belirleme/değiştirme (Operator yeni ürünü varsayılan eşikle ekler).</summary>
+    EsikDuzenle,
+    DenetimGoruntule,
 }
 
 public static class YetkiKurallari
@@ -25,7 +29,8 @@ public static class YetkiKurallari
         Yetki.UrunGoruntule or Yetki.UrunEkleGuncelle or Yetki.StokGuncelle
             or Yetki.SiparisOlustur or Yetki.GecmisVeRaporGoruntule => KullaniciRolu.Operator,
         Yetki.UrunSil or Yetki.SiparisSil or Yetki.KategoriYonetimi
-            or Yetki.KullaniciYonetimi or Yetki.CsvAktarim => KullaniciRolu.Admin,
+            or Yetki.KullaniciYonetimi or Yetki.CsvAktarim
+            or Yetki.EsikDuzenle or Yetki.DenetimGoruntule => KullaniciRolu.Admin,
         _ => throw new ArgumentOutOfRangeException(nameof(yetki)),
     };
 
@@ -37,6 +42,21 @@ public interface IYetkiDenetcisi
 {
     /// <exception cref="YetkisizIslemException"/>
     Task GerektirAsync(Yetki yetki, CancellationToken cancellationToken = default);
+
+    /// <summary>Yetki yoksa false döner; oturum yoksa ya da hesap artık geçerli değilse yine reddeder.</summary>
+    /// <exception cref="YetkisizIslemException"/>
+    async Task<bool> YetkiliMiAsync(Yetki yetki, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await GerektirAsync(yetki, cancellationToken);
+            return true;
+        }
+        catch (YetkisizIslemException ex) when (ex.Message == YetkisizIslemException.YetkiYokMesaji)
+        {
+            return false;
+        }
+    }
 }
 
 /// <summary>Denetim yapmaz; servislerin oturumdan bağımsız kullanıldığı testler ve araçlar içindir.</summary>
@@ -66,5 +86,22 @@ public sealed class OturumYetkiDenetcisi(IOturumBaglami oturum, IKullaniciReposi
         }
 
         return GuncelYetkiDogrulama.DogrulaAsync(_oturum, _kullanicilar, gerekliRol, cancellationToken);
+    }
+
+    public async Task<bool> YetkiliMiAsync(Yetki yetki, CancellationToken cancellationToken = default)
+    {
+        var gerekliRol = YetkiKurallari.GerekliRol(yetki);
+        var kullanici = _oturum.MevcutKullanici ?? throw new YetkisizIslemException(YetkisizIslemException.OturumGerekliMesaji);
+        if (kullanici.Rol < gerekliRol)
+        {
+            return false;
+        }
+
+        if (YetkiKurallari.HassasMi(yetki))
+        {
+            await GuncelYetkiDogrulama.DogrulaAsync(_oturum, _kullanicilar, gerekliRol, cancellationToken);
+        }
+
+        return true;
     }
 }

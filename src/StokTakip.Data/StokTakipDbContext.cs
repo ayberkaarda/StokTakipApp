@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using StokTakip.Domain.Entities;
 
 namespace StokTakip.Data;
@@ -10,6 +11,13 @@ public sealed class StokTakipDbContext(DbContextOptions<StokTakipDbContext> opti
     public DbSet<Siparis> Siparisler => Set<Siparis>();
     public DbSet<Kategori> Kategoriler => Set<Kategori>();
     public DbSet<Kullanici> Kullanicilar => Set<Kullanici>();
+    public DbSet<DenetimKaydi> DenetimKayitlari => Set<DenetimKaydi>();
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        base.OnConfiguring(optionsBuilder);
+        optionsBuilder.AddInterceptors(DenetimKaydiKorumasi.Instance);
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -82,5 +90,27 @@ public sealed class StokTakipDbContext(DbContextOptions<StokTakipDbContext> opti
         kullanici.Property(x => x.ParolaTuzu).IsRequired().HasMaxLength(32);
         kullanici.Property(x => x.RowVersion).IsRowVersion();
         kullanici.HasIndex(x => x.KullaniciAdi).IsUnique();
+
+        var denetim = modelBuilder.Entity<DenetimKaydi>();
+        denetim.ToTable("DenetimKayitlari");
+        denetim.HasKey(x => x.DenetimId);
+        denetim.Property(x => x.DenetimId).HasColumnName("DenetimID");
+
+        // Zaman istemciden hiç gönderilmez; sunucu saatiyle dolar ve eklemeden sonra geri okunur.
+        var zaman = denetim.Property(x => x.Zaman).HasDefaultValueSql("SYSUTCDATETIME()").ValueGeneratedOnAdd();
+        zaman.Metadata.SetBeforeSaveBehavior(PropertySaveBehavior.Ignore);
+        zaman.Metadata.SetAfterSaveBehavior(PropertySaveBehavior.Ignore);
+
+        denetim.Property(x => x.KullaniciId).HasColumnName("KullaniciID");
+        denetim.Property(x => x.KullaniciAdi).IsRequired().HasMaxLength(DenetimKaydi.KullaniciAdiMaksimumUzunluk);
+        denetim.Property(x => x.VarlikTuru).IsRequired().HasMaxLength(DenetimKaydi.VarlikTuruMaksimumUzunluk);
+        denetim.Property(x => x.VarlikId).HasColumnName("VarlikID");
+        denetim.Property(x => x.VarlikAdi).HasMaxLength(DenetimKaydi.VarlikAdiMaksimumUzunluk);
+        denetim.Property(x => x.EskiDeger).HasMaxLength(DenetimKaydi.DegerMaksimumUzunluk);
+        denetim.Property(x => x.YeniDeger).HasMaxLength(DenetimKaydi.DegerMaksimumUzunluk);
+        denetim.Property(x => x.Ozet).IsRequired().HasMaxLength(DenetimKaydi.OzetMaksimumUzunluk);
+        denetim.HasIndex(x => x.Zaman).IsDescending();
+        denetim.HasIndex(x => new { x.KullaniciId, x.Zaman }).IsDescending(false, true);
+        denetim.HasIndex(x => new { x.Islem, x.Zaman }).IsDescending(false, true);
     }
 }

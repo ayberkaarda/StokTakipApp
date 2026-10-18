@@ -24,7 +24,11 @@ public interface IKimlikService
     /// <exception cref="OperationCanceledException">Giriş sürerken oturum durumu değiştiyse.</exception>
     Task<KullaniciDto> GirisYapAsync(string kullaniciAdi, string parola, CancellationToken cancellationToken = default);
 
+    /// <summary>Oturumu kapatır; denetim kaydı yazmaz. Arayüz <see cref="CikisYapAsync"/> kullanmalıdır.</summary>
     void CikisYap();
+
+    /// <summary>Oturumu her durumda kapatır, ardından çıkışı denetim kaydına yazar.</summary>
+    Task CikisYapAsync(CancellationToken cancellationToken = default);
 
     /// <exception cref="YetkisizIslemException">Oturumdaki kullanıcı güncel olarak aktif bir Admin değilse.</exception>
     /// <exception cref="GecersizGirdiException"/>
