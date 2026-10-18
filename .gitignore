@@ -1,0 +1,30 @@
+# Build output
+**/bin/
+**/obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Dependencies and test results
+**/packages/
+**/TestResults/
+
+# Local files and logs
+*.bak
+*.log
+logs/
+**/logs/
+appsettings.*.local.json
+**/appsettings.*.local.json
+**/Logs/*.txt
+**/logs/*.txt
+
+# Coverage output
+coverage/
+**/coverage/
+coverage.*
+*.coverage
+*.coveragexml
+**/TestResults/**/coverage*
