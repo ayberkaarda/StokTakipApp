@@ -219,6 +219,7 @@ namespace StokTakip.Presenters
 
             var istek = new SiparisOlusturIstegi(urunId.Value, adet);
             await _scopeFactory.CalistirAsync<ISiparisService>(s => s.SiparisOlusturAsync(istek));
+            _bildirim.SiparislerDegistiBildir(this);
             _view.BilgiGoster("Sipariş başarıyla oluşturuldu.");
             await UrunleriYukleAsync();
             _view.SiparisAdetMetni = string.Empty;

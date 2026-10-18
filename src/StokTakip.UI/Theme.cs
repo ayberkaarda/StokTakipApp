@@ -117,6 +117,30 @@ namespace StokTakip
             ApplyToChildren(form);
         }
 
+        /// <summary>
+        /// Yüksek DPI'da ölçeklenen pencere ve minimum boyut ekranın çalışma alanını aşmasın;
+        /// gerekirse pencere küçültülüp ortalanır.
+        /// </summary>
+        public static void EkranaSigdir(Form form)
+        {
+            Rectangle alan = Screen.FromControl(form).WorkingArea;
+            Size enKucuk = form.MinimumSize;
+            form.MinimumSize = new Size(Math.Min(enKucuk.Width, alan.Width), Math.Min(enKucuk.Height, alan.Height));
+
+            if (alan.Contains(form.Bounds))
+            {
+                return;
+            }
+
+            int genislik = Math.Min(form.Width, alan.Width);
+            int yukseklik = Math.Min(form.Height, alan.Height);
+            form.Bounds = new Rectangle(
+                Math.Clamp(form.Left, alan.Left, alan.Right - genislik),
+                Math.Clamp(form.Top, alan.Top, alan.Bottom - yukseklik),
+                genislik,
+                yukseklik);
+        }
+
         private static Image KaynakResmiYukle(string ad)
         {
             using (Stream akis = typeof(Theme).Assembly.GetManifestResourceStream(ad))
@@ -174,6 +198,14 @@ namespace StokTakip
                     comboBox.Font = InputFont;
                     comboBox.BackColor = Palette.Surface;
                     comboBox.ForeColor = Palette.Text;
+                    break;
+                case DateTimePicker dateTimePicker:
+                    dateTimePicker.Font = InputFont;
+                    break;
+                case CheckBox checkBox:
+                    checkBox.Font = BodyFont;
+                    checkBox.ForeColor = Palette.TextSecondary;
+                    checkBox.Cursor = Cursors.Hand;
                     break;
                 case Label label:
                     StyleLabel(label, role);
@@ -357,6 +389,10 @@ namespace StokTakip
                 {
                     column.HeaderText = header;
                 }
+
+                DataGridViewCellStyle headerStyle = grid.ColumnHeadersDefaultCellStyle;
+                column.MinimumWidth = Math.Max(2, TextRenderer.MeasureText(column.HeaderText, headerStyle.Font ?? grid.Font).Width
+                    + headerStyle.Padding.Horizontal + Scale(grid, 12));
 
                 Type type = column.ValueType;
                 bool isId = key.EndsWith("ID", StringComparison.OrdinalIgnoreCase);

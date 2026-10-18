@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using System.Windows.Forms;
@@ -12,7 +13,11 @@ namespace StokTakip
     public partial class Form1 : Form, IAnaFormView
     {
         private readonly Func<SiparisGecmisiForm> _siparisGecmisiFormu;
+        private readonly BindingList<UrunDto> _urunler = new BindingList<UrunDto>();
+        private readonly YuklemeGostergesi _yuklemeGostergesi;
         private bool _listeYenileniyor;
+        private bool _mesgul;
+        private Control _mesgulOncesiOdak;
 
         public Form1(IAnaFormPresenter presenter, Func<SiparisGecmisiForm> siparisGecmisiFormu)
         {
@@ -22,6 +27,20 @@ namespace StokTakip
             InitializeComponent();
             Theme.Apply(this);
             Theme.EnableStockHighlight(dgvUrunler, "Stok");
+            dgvUrunler.DataBindingComplete += (s, e) =>
+            {
+                if (dgvUrunler.Columns[nameof(UrunDto.RowVersion)] is DataGridViewColumn surumSutunu)
+                {
+                    surumSutunu.Visible = false;
+                }
+            };
+
+            _listeYenileniyor = true;
+            bsUrunler.DataSource = _urunler;
+            bsSiparisUrunleri.DataSource = _urunler;
+            _listeYenileniyor = false;
+
+            _yuklemeGostergesi = new YuklemeGostergesi(components, goster => lblDurum.Visible = goster);
             UrunIslemleriniGuncelle();
             presenter.Bagla(this);
         }
@@ -82,7 +101,36 @@ namespace StokTakip
 
         bool IMesajView.Mesgul
         {
-            set { if (!Kapali) UseWaitCursor = value; }
+            set
+            {
+                if (Kapali || _mesgul == value)
+                {
+                    return;
+                }
+
+                if (value)
+                {
+                    _mesgulOncesiOdak = ActiveControl;
+                }
+
+                _mesgul = value;
+                UseWaitCursor = value;
+                _yuklemeGostergesi.Aktif = value;
+                btnUrunEkle.Enabled = !value;
+                btnSiparisVer.Enabled = !value;
+                UrunIslemleriniGuncelle();
+
+                // Devre dışı kalan düğme odağı kaybettiyse odak geri verilir.
+                if (!value)
+                {
+                    if (_mesgulOncesiOdak is Button odak && !odak.IsDisposed && odak.CanFocus && ActiveControl != odak)
+                    {
+                        odak.Focus();
+                    }
+
+                    _mesgulOncesiOdak = null;
+                }
+            }
         }
 
         void IAnaFormView.UrunleriGoster(IReadOnlyList<UrunDto> urunler)
@@ -98,17 +146,18 @@ namespace StokTakip
             _listeYenileniyor = true;
             try
             {
-                dgvUrunler.DataSource = urunler.ToList();
-                if (dgvUrunler.Columns[nameof(UrunDto.RowVersion)] is DataGridViewColumn surumSutunu)
+                _urunler.RaiseListChangedEvents = false;
+                _urunler.Clear();
+                foreach (UrunDto urun in urunler)
                 {
-                    surumSutunu.Visible = false;
+                    _urunler.Add(urun);
                 }
+
+                _urunler.RaiseListChangedEvents = true;
+                _urunler.ResetBindings();
 
                 SatiriSec(oncekiSecili?.UrunId);
 
-                cmbUrunler.DisplayMember = nameof(UrunDto.UrunAdi);
-                cmbUrunler.ValueMember = nameof(UrunDto.UrunId);
-                cmbUrunler.DataSource = urunler.ToList();
                 if (seciliSiparisUrunu != null)
                 {
                     cmbUrunler.SelectedValue = seciliSiparisUrunu;
@@ -155,9 +204,9 @@ namespace StokTakip
 
         private void UrunIslemleriniGuncelle()
         {
-            bool seciliVar = SeciliUrun != null;
-            btnStokGuncelle.Enabled = seciliVar;
-            btnUrunSil.Enabled = seciliVar;
+            bool etkin = !_mesgul && SeciliUrun != null;
+            btnStokGuncelle.Enabled = etkin;
+            btnUrunSil.Enabled = etkin;
         }
 
         void IAnaFormView.SiparisGecmisiniAc()
@@ -197,7 +246,11 @@ namespace StokTakip
         // Async işlem sürerken form kapatılırsa devam eden kod kapanmış forma yazmasın.
         private bool Kapali => IsDisposed || Disposing || !IsHandleCreated;
 
-        private void Form1_Load(object sender, EventArgs e) => Yuklendi?.Invoke(this, EventArgs.Empty);
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            Theme.EkranaSigdir(this);
+            Yuklendi?.Invoke(this, EventArgs.Empty);
+        }
 
         private void btnUrunEkle_Click(object sender, EventArgs e) => UrunEkleIstendi?.Invoke(this, EventArgs.Empty);
 

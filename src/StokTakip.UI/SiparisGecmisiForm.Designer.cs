@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             this.pnlHeader = new System.Windows.Forms.Panel();
             this.picLogo = new System.Windows.Forms.PictureBox();
             this.lblBaslik = new System.Windows.Forms.Label();
@@ -42,10 +43,27 @@
             this.lblToplamAdet = new System.Windows.Forms.Label();
             this.pnlListe = new System.Windows.Forms.Panel();
             this.dgvSiparisGecmisi = new System.Windows.Forms.DataGridView();
-            this.pnlAlt = new System.Windows.Forms.Panel();
+            this.lblBosSonuc = new System.Windows.Forms.Label();
+            this.tlpAlt = new System.Windows.Forms.TableLayoutPanel();
+            this.btnOncekiSayfa = new System.Windows.Forms.Button();
+            this.lblSayfaBilgisi = new System.Windows.Forms.Label();
+            this.btnSonrakiSayfa = new System.Windows.Forms.Button();
+            this.lblSayfaBoyutu = new System.Windows.Forms.Label();
+            this.cmbSayfaBoyutu = new System.Windows.Forms.ComboBox();
             this.btnSiparisSil = new System.Windows.Forms.Button();
+            this.tlpFiltre = new System.Windows.Forms.TableLayoutPanel();
+            this.lblArama = new System.Windows.Forms.Label();
+            this.txtArama = new System.Windows.Forms.TextBox();
+            this.lblBaslangic = new System.Windows.Forms.Label();
+            this.dtpBaslangic = new System.Windows.Forms.DateTimePicker();
+            this.lblBitis = new System.Windows.Forms.Label();
+            this.dtpBitis = new System.Windows.Forms.DateTimePicker();
+            this.chkTumTarihler = new System.Windows.Forms.CheckBox();
+            this.btnTemizle = new System.Windows.Forms.Button();
             this.lblListeAciklama = new System.Windows.Forms.Label();
             this.lblListeBaslik = new System.Windows.Forms.Label();
+            this.bsSiparisler = new System.Windows.Forms.BindingSource(this.components);
+            this.tmrArama = new System.Windows.Forms.Timer(this.components);
             this.pnlHeader.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.picLogo)).BeginInit();
             this.tlpGovde.SuspendLayout();
@@ -54,7 +72,10 @@
             this.pnlToplamAdet.SuspendLayout();
             this.pnlListe.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvSiparisGecmisi)).BeginInit();
-            this.pnlAlt.SuspendLayout();
+            this.dgvSiparisGecmisi.SuspendLayout();
+            this.tlpAlt.SuspendLayout();
+            this.tlpFiltre.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.bsSiparisler)).BeginInit();
             this.SuspendLayout();
             //
             // pnlHeader
@@ -65,7 +86,7 @@
             this.pnlHeader.Dock = System.Windows.Forms.DockStyle.Top;
             this.pnlHeader.Location = new System.Drawing.Point(0, 0);
             this.pnlHeader.Name = "pnlHeader";
-            this.pnlHeader.Size = new System.Drawing.Size(900, 64);
+            this.pnlHeader.Size = new System.Drawing.Size(940, 64);
             this.pnlHeader.TabIndex = 1;
             this.pnlHeader.Tag = "header";
             //
@@ -95,7 +116,7 @@
             this.lblAltBaslik.Name = "lblAltBaslik";
             this.lblAltBaslik.TabIndex = 2;
             this.lblAltBaslik.Tag = "subtitle";
-            this.lblAltBaslik.Text = "Tüm siparişler, en yeniden en eskiye sıralı";
+            this.lblAltBaslik.Text = "Siparişler en yeniden en eskiye sıralı; tarih ve ürün adına göre süzülebilir";
             //
             // tlpGovde
             //
@@ -110,7 +131,7 @@
             this.tlpGovde.RowCount = 2;
             this.tlpGovde.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 96F));
             this.tlpGovde.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tlpGovde.Size = new System.Drawing.Size(900, 576);
+            this.tlpGovde.Size = new System.Drawing.Size(940, 616);
             this.tlpGovde.TabIndex = 0;
             //
             // tlpOzet
@@ -127,7 +148,7 @@
             this.tlpOzet.Name = "tlpOzet";
             this.tlpOzet.RowCount = 1;
             this.tlpOzet.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tlpOzet.Size = new System.Drawing.Size(860, 80);
+            this.tlpOzet.Size = new System.Drawing.Size(900, 80);
             this.tlpOzet.TabIndex = 1;
             //
             // pnlToplamSiparis
@@ -193,7 +214,8 @@
             // pnlListe
             //
             this.pnlListe.Controls.Add(this.dgvSiparisGecmisi);
-            this.pnlListe.Controls.Add(this.pnlAlt);
+            this.pnlListe.Controls.Add(this.tlpAlt);
+            this.pnlListe.Controls.Add(this.tlpFiltre);
             this.pnlListe.Controls.Add(this.lblListeAciklama);
             this.pnlListe.Controls.Add(this.lblListeBaslik);
             this.pnlListe.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -201,7 +223,7 @@
             this.pnlListe.Margin = new System.Windows.Forms.Padding(0);
             this.pnlListe.Name = "pnlListe";
             this.pnlListe.Padding = new System.Windows.Forms.Padding(16, 12, 16, 12);
-            this.pnlListe.Size = new System.Drawing.Size(860, 444);
+            this.pnlListe.Size = new System.Drawing.Size(900, 484);
             this.pnlListe.TabIndex = 0;
             this.pnlListe.Tag = "card";
             //
@@ -210,7 +232,7 @@
             this.lblListeBaslik.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblListeBaslik.Location = new System.Drawing.Point(16, 12);
             this.lblListeBaslik.Name = "lblListeBaslik";
-            this.lblListeBaslik.Size = new System.Drawing.Size(828, 28);
+            this.lblListeBaslik.Size = new System.Drawing.Size(868, 28);
             this.lblListeBaslik.TabIndex = 0;
             this.lblListeBaslik.Tag = "section";
             this.lblListeBaslik.Text = "Siparişler";
@@ -221,10 +243,122 @@
             this.lblListeAciklama.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblListeAciklama.Location = new System.Drawing.Point(16, 40);
             this.lblListeAciklama.Name = "lblListeAciklama";
-            this.lblListeAciklama.Size = new System.Drawing.Size(828, 28);
+            this.lblListeAciklama.Size = new System.Drawing.Size(868, 24);
             this.lblListeAciklama.TabIndex = 1;
             this.lblListeAciklama.Tag = "hint";
             this.lblListeAciklama.Text = "Silinen siparişin adedi, ilgili ürünün stokuna geri eklenir.";
+            //
+            // tlpFiltre
+            //
+            this.tlpFiltre.AutoSize = true;
+            this.tlpFiltre.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+            this.tlpFiltre.ColumnCount = 5;
+            this.tlpFiltre.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tlpFiltre.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
+            this.tlpFiltre.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
+            this.tlpFiltre.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
+            this.tlpFiltre.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
+            this.tlpFiltre.Controls.Add(this.lblArama, 0, 0);
+            this.tlpFiltre.Controls.Add(this.txtArama, 0, 1);
+            this.tlpFiltre.Controls.Add(this.lblBaslangic, 1, 0);
+            this.tlpFiltre.Controls.Add(this.dtpBaslangic, 1, 1);
+            this.tlpFiltre.Controls.Add(this.lblBitis, 2, 0);
+            this.tlpFiltre.Controls.Add(this.dtpBitis, 2, 1);
+            this.tlpFiltre.Controls.Add(this.chkTumTarihler, 3, 1);
+            this.tlpFiltre.Controls.Add(this.btnTemizle, 4, 1);
+            this.tlpFiltre.Dock = System.Windows.Forms.DockStyle.Top;
+            this.tlpFiltre.Location = new System.Drawing.Point(16, 64);
+            this.tlpFiltre.Name = "tlpFiltre";
+            this.tlpFiltre.Padding = new System.Windows.Forms.Padding(0, 4, 0, 12);
+            this.tlpFiltre.RowCount = 2;
+            this.tlpFiltre.RowStyles.Add(new System.Windows.Forms.RowStyle());
+            this.tlpFiltre.RowStyles.Add(new System.Windows.Forms.RowStyle());
+            this.tlpFiltre.Size = new System.Drawing.Size(868, 68);
+            this.tlpFiltre.TabIndex = 2;
+            //
+            // lblArama
+            //
+            this.lblArama.AutoSize = true;
+            this.lblArama.Margin = new System.Windows.Forms.Padding(0, 0, 12, 4);
+            this.lblArama.Name = "lblArama";
+            this.lblArama.TabIndex = 0;
+            this.lblArama.Tag = "field";
+            this.lblArama.Text = "Ürün Ara";
+            //
+            // txtArama
+            //
+            this.txtArama.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
+            this.txtArama.Margin = new System.Windows.Forms.Padding(0, 0, 12, 0);
+            this.txtArama.MaxLength = 100;
+            this.txtArama.Name = "txtArama";
+            this.txtArama.PlaceholderText = "Ürün adına göre ara (Enter ile hemen)";
+            this.txtArama.Size = new System.Drawing.Size(300, 25);
+            this.txtArama.TabIndex = 0;
+            this.txtArama.TextChanged += new System.EventHandler(this.txtArama_TextChanged);
+            this.txtArama.KeyDown += new System.Windows.Forms.KeyEventHandler(this.txtArama_KeyDown);
+            //
+            // lblBaslangic
+            //
+            this.lblBaslangic.AutoSize = true;
+            this.lblBaslangic.Margin = new System.Windows.Forms.Padding(0, 0, 12, 4);
+            this.lblBaslangic.Name = "lblBaslangic";
+            this.lblBaslangic.TabIndex = 1;
+            this.lblBaslangic.Tag = "field";
+            this.lblBaslangic.Text = "Başlangıç Tarihi";
+            //
+            // dtpBaslangic
+            //
+            this.dtpBaslangic.Anchor = System.Windows.Forms.AnchorStyles.Left;
+            this.dtpBaslangic.Format = System.Windows.Forms.DateTimePickerFormat.Short;
+            this.dtpBaslangic.Margin = new System.Windows.Forms.Padding(0, 0, 12, 0);
+            this.dtpBaslangic.Name = "dtpBaslangic";
+            this.dtpBaslangic.Size = new System.Drawing.Size(124, 25);
+            this.dtpBaslangic.TabIndex = 1;
+            this.dtpBaslangic.ValueChanged += new System.EventHandler(this.dtpBaslangic_ValueChanged);
+            //
+            // lblBitis
+            //
+            this.lblBitis.AutoSize = true;
+            this.lblBitis.Margin = new System.Windows.Forms.Padding(0, 0, 12, 4);
+            this.lblBitis.Name = "lblBitis";
+            this.lblBitis.TabIndex = 2;
+            this.lblBitis.Tag = "field";
+            this.lblBitis.Text = "Bitiş Tarihi";
+            //
+            // dtpBitis
+            //
+            this.dtpBitis.Anchor = System.Windows.Forms.AnchorStyles.Left;
+            this.dtpBitis.Format = System.Windows.Forms.DateTimePickerFormat.Short;
+            this.dtpBitis.Margin = new System.Windows.Forms.Padding(0, 0, 12, 0);
+            this.dtpBitis.Name = "dtpBitis";
+            this.dtpBitis.Size = new System.Drawing.Size(124, 25);
+            this.dtpBitis.TabIndex = 2;
+            this.dtpBitis.ValueChanged += new System.EventHandler(this.dtpBitis_ValueChanged);
+            //
+            // chkTumTarihler
+            //
+            this.chkTumTarihler.Anchor = System.Windows.Forms.AnchorStyles.Left;
+            this.chkTumTarihler.AutoSize = true;
+            this.chkTumTarihler.Checked = true;
+            this.chkTumTarihler.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.chkTumTarihler.Margin = new System.Windows.Forms.Padding(0, 0, 12, 0);
+            this.chkTumTarihler.Name = "chkTumTarihler";
+            this.chkTumTarihler.TabIndex = 3;
+            this.chkTumTarihler.Text = "Tüm tarihler";
+            this.chkTumTarihler.UseVisualStyleBackColor = true;
+            this.chkTumTarihler.CheckedChanged += new System.EventHandler(this.chkTumTarihler_CheckedChanged);
+            //
+            // btnTemizle
+            //
+            this.btnTemizle.Anchor = System.Windows.Forms.AnchorStyles.Left;
+            this.btnTemizle.Margin = new System.Windows.Forms.Padding(0);
+            this.btnTemizle.Name = "btnTemizle";
+            this.btnTemizle.Size = new System.Drawing.Size(96, 30);
+            this.btnTemizle.TabIndex = 4;
+            this.btnTemizle.Tag = "secondary";
+            this.btnTemizle.Text = "Temizle";
+            this.btnTemizle.UseVisualStyleBackColor = true;
+            this.btnTemizle.Click += new System.EventHandler(this.btnTemizle_Click);
             //
             // dgvSiparisGecmisi
             //
@@ -232,46 +366,146 @@
             this.dgvSiparisGecmisi.AllowUserToDeleteRows = false;
             this.dgvSiparisGecmisi.AllowUserToResizeRows = false;
             this.dgvSiparisGecmisi.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+            this.dgvSiparisGecmisi.Controls.Add(this.lblBosSonuc);
+            this.dgvSiparisGecmisi.DataSource = this.bsSiparisler;
             this.dgvSiparisGecmisi.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dgvSiparisGecmisi.Location = new System.Drawing.Point(16, 68);
+            this.dgvSiparisGecmisi.Location = new System.Drawing.Point(16, 132);
             this.dgvSiparisGecmisi.MultiSelect = false;
             this.dgvSiparisGecmisi.Name = "dgvSiparisGecmisi";
             this.dgvSiparisGecmisi.ReadOnly = true;
             this.dgvSiparisGecmisi.RowHeadersVisible = false;
             this.dgvSiparisGecmisi.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.dgvSiparisGecmisi.Size = new System.Drawing.Size(828, 312);
-            this.dgvSiparisGecmisi.TabIndex = 2;
+            this.dgvSiparisGecmisi.Size = new System.Drawing.Size(868, 292);
+            this.dgvSiparisGecmisi.TabIndex = 3;
+            this.dgvSiparisGecmisi.Resize += new System.EventHandler(this.dgvSiparisGecmisi_Resize);
             //
-            // pnlAlt
+            // lblBosSonuc
             //
-            this.pnlAlt.Controls.Add(this.btnSiparisSil);
-            this.pnlAlt.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.pnlAlt.Location = new System.Drawing.Point(16, 380);
-            this.pnlAlt.Name = "pnlAlt";
-            this.pnlAlt.Size = new System.Drawing.Size(828, 52);
-            this.pnlAlt.TabIndex = 3;
+            this.lblBosSonuc.Location = new System.Drawing.Point(0, 40);
+            this.lblBosSonuc.Name = "lblBosSonuc";
+            this.lblBosSonuc.Size = new System.Drawing.Size(868, 120);
+            this.lblBosSonuc.TabIndex = 0;
+            this.lblBosSonuc.Text = "Kayıt bulunamadı";
+            this.lblBosSonuc.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.lblBosSonuc.Visible = false;
+            //
+            // tlpAlt
+            //
+            this.tlpAlt.AutoSize = true;
+            this.tlpAlt.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+            this.tlpAlt.ColumnCount = 7;
+            this.tlpAlt.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
+            this.tlpAlt.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
+            this.tlpAlt.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
+            this.tlpAlt.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
+            this.tlpAlt.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
+            this.tlpAlt.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tlpAlt.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
+            this.tlpAlt.Controls.Add(this.btnOncekiSayfa, 0, 0);
+            this.tlpAlt.Controls.Add(this.lblSayfaBilgisi, 1, 0);
+            this.tlpAlt.Controls.Add(this.btnSonrakiSayfa, 2, 0);
+            this.tlpAlt.Controls.Add(this.lblSayfaBoyutu, 3, 0);
+            this.tlpAlt.Controls.Add(this.cmbSayfaBoyutu, 4, 0);
+            this.tlpAlt.Controls.Add(this.btnSiparisSil, 6, 0);
+            this.tlpAlt.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.tlpAlt.Location = new System.Drawing.Point(16, 424);
+            this.tlpAlt.Name = "tlpAlt";
+            this.tlpAlt.Padding = new System.Windows.Forms.Padding(0, 12, 0, 0);
+            this.tlpAlt.RowCount = 1;
+            this.tlpAlt.RowStyles.Add(new System.Windows.Forms.RowStyle());
+            this.tlpAlt.Size = new System.Drawing.Size(868, 48);
+            this.tlpAlt.TabIndex = 4;
+            //
+            // btnOncekiSayfa
+            //
+            this.btnOncekiSayfa.Anchor = System.Windows.Forms.AnchorStyles.Left;
+            this.btnOncekiSayfa.Enabled = false;
+            this.btnOncekiSayfa.Margin = new System.Windows.Forms.Padding(0);
+            this.btnOncekiSayfa.Name = "btnOncekiSayfa";
+            this.btnOncekiSayfa.Size = new System.Drawing.Size(92, 36);
+            this.btnOncekiSayfa.TabIndex = 0;
+            this.btnOncekiSayfa.Tag = "secondary";
+            this.btnOncekiSayfa.Text = "‹ Önceki";
+            this.btnOncekiSayfa.UseVisualStyleBackColor = true;
+            this.btnOncekiSayfa.Click += new System.EventHandler(this.btnOncekiSayfa_Click);
+            //
+            // lblSayfaBilgisi
+            //
+            this.lblSayfaBilgisi.Anchor = System.Windows.Forms.AnchorStyles.Left;
+            this.lblSayfaBilgisi.AutoSize = true;
+            this.lblSayfaBilgisi.Margin = new System.Windows.Forms.Padding(8, 0, 8, 0);
+            this.lblSayfaBilgisi.MinimumSize = new System.Drawing.Size(168, 0);
+            this.lblSayfaBilgisi.Name = "lblSayfaBilgisi";
+            this.lblSayfaBilgisi.TabIndex = 1;
+            this.lblSayfaBilgisi.Tag = "field";
+            this.lblSayfaBilgisi.Text = "Yükleniyor…";
+            this.lblSayfaBilgisi.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            //
+            // btnSonrakiSayfa
+            //
+            this.btnSonrakiSayfa.Anchor = System.Windows.Forms.AnchorStyles.Left;
+            this.btnSonrakiSayfa.Enabled = false;
+            this.btnSonrakiSayfa.Margin = new System.Windows.Forms.Padding(0);
+            this.btnSonrakiSayfa.Name = "btnSonrakiSayfa";
+            this.btnSonrakiSayfa.Size = new System.Drawing.Size(92, 36);
+            this.btnSonrakiSayfa.TabIndex = 2;
+            this.btnSonrakiSayfa.Tag = "secondary";
+            this.btnSonrakiSayfa.Text = "Sonraki ›";
+            this.btnSonrakiSayfa.UseVisualStyleBackColor = true;
+            this.btnSonrakiSayfa.Click += new System.EventHandler(this.btnSonrakiSayfa_Click);
+            //
+            // lblSayfaBoyutu
+            //
+            this.lblSayfaBoyutu.Anchor = System.Windows.Forms.AnchorStyles.Left;
+            this.lblSayfaBoyutu.AutoSize = true;
+            this.lblSayfaBoyutu.Margin = new System.Windows.Forms.Padding(20, 0, 6, 0);
+            this.lblSayfaBoyutu.Name = "lblSayfaBoyutu";
+            this.lblSayfaBoyutu.TabIndex = 3;
+            this.lblSayfaBoyutu.Tag = "hint";
+            this.lblSayfaBoyutu.Text = "Sayfa boyutu";
+            //
+            // cmbSayfaBoyutu
+            //
+            this.cmbSayfaBoyutu.Anchor = System.Windows.Forms.AnchorStyles.Left;
+            this.cmbSayfaBoyutu.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cmbSayfaBoyutu.FormattingEnabled = true;
+            this.cmbSayfaBoyutu.Items.AddRange(new object[] {
+            25,
+            50,
+            100});
+            this.cmbSayfaBoyutu.Margin = new System.Windows.Forms.Padding(0, 0, 12, 0);
+            this.cmbSayfaBoyutu.Name = "cmbSayfaBoyutu";
+            this.cmbSayfaBoyutu.Size = new System.Drawing.Size(64, 25);
+            this.cmbSayfaBoyutu.TabIndex = 4;
+            this.cmbSayfaBoyutu.SelectedIndexChanged += new System.EventHandler(this.cmbSayfaBoyutu_SelectedIndexChanged);
             //
             // btnSiparisSil
             //
-            this.btnSiparisSil.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnSiparisSil.Location = new System.Drawing.Point(638, 14);
+            this.btnSiparisSil.Anchor = System.Windows.Forms.AnchorStyles.Right;
+            this.btnSiparisSil.Enabled = false;
+            this.btnSiparisSil.Margin = new System.Windows.Forms.Padding(0);
             this.btnSiparisSil.Name = "btnSiparisSil";
-            this.btnSiparisSil.Size = new System.Drawing.Size(190, 36);
-            this.btnSiparisSil.TabIndex = 0;
+            this.btnSiparisSil.Size = new System.Drawing.Size(170, 36);
+            this.btnSiparisSil.TabIndex = 6;
             this.btnSiparisSil.Tag = "danger";
             this.btnSiparisSil.Text = "Seçili Siparişi Sil";
             this.btnSiparisSil.UseVisualStyleBackColor = true;
             this.btnSiparisSil.Click += new System.EventHandler(this.btnSiparisSil_Click);
             //
+            // tmrArama
+            //
+            this.tmrArama.Interval = 300;
+            this.tmrArama.Tick += new System.EventHandler(this.tmrArama_Tick);
+            //
             // SiparisGecmisiForm
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
-            this.ClientSize = new System.Drawing.Size(900, 640);
+            this.ClientSize = new System.Drawing.Size(940, 680);
             this.Controls.Add(this.tlpGovde);
             this.Controls.Add(this.pnlHeader);
             this.Font = new System.Drawing.Font("Segoe UI", 9.75F);
-            this.MinimumSize = new System.Drawing.Size(720, 480);
+            this.MinimumSize = new System.Drawing.Size(800, 560);
             this.Name = "SiparisGecmisiForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Sipariş Geçmişi";
@@ -287,8 +521,14 @@
             this.pnlToplamAdet.ResumeLayout(false);
             this.pnlToplamAdet.PerformLayout();
             this.pnlListe.ResumeLayout(false);
+            this.pnlListe.PerformLayout();
+            this.dgvSiparisGecmisi.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.dgvSiparisGecmisi)).EndInit();
-            this.pnlAlt.ResumeLayout(false);
+            this.tlpAlt.ResumeLayout(false);
+            this.tlpAlt.PerformLayout();
+            this.tlpFiltre.ResumeLayout(false);
+            this.tlpFiltre.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.bsSiparisler)).EndInit();
             this.ResumeLayout(false);
 
         }
@@ -310,8 +550,25 @@
         private System.Windows.Forms.Panel pnlListe;
         private System.Windows.Forms.Label lblListeBaslik;
         private System.Windows.Forms.Label lblListeAciklama;
+        private System.Windows.Forms.TableLayoutPanel tlpFiltre;
+        private System.Windows.Forms.Label lblArama;
+        private System.Windows.Forms.TextBox txtArama;
+        private System.Windows.Forms.Label lblBaslangic;
+        private System.Windows.Forms.DateTimePicker dtpBaslangic;
+        private System.Windows.Forms.Label lblBitis;
+        private System.Windows.Forms.DateTimePicker dtpBitis;
+        private System.Windows.Forms.CheckBox chkTumTarihler;
+        private System.Windows.Forms.Button btnTemizle;
         private System.Windows.Forms.DataGridView dgvSiparisGecmisi;
-        private System.Windows.Forms.Panel pnlAlt;
+        private System.Windows.Forms.Label lblBosSonuc;
+        private System.Windows.Forms.TableLayoutPanel tlpAlt;
+        private System.Windows.Forms.Button btnOncekiSayfa;
+        private System.Windows.Forms.Label lblSayfaBilgisi;
+        private System.Windows.Forms.Button btnSonrakiSayfa;
+        private System.Windows.Forms.Label lblSayfaBoyutu;
+        private System.Windows.Forms.ComboBox cmbSayfaBoyutu;
         private System.Windows.Forms.Button btnSiparisSil;
+        private System.Windows.Forms.BindingSource bsSiparisler;
+        private System.Windows.Forms.Timer tmrArama;
     }
 }
