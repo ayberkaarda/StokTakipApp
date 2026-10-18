@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using StokTakip.Application.Dtos;
 using StokTakip.Application.Services;
+using StokTakip.Domain.Exceptions;
 using StokTakip.Views;
 
 namespace StokTakip.Presenters
@@ -21,8 +22,12 @@ namespace StokTakip.Presenters
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly IStokDegisiklikBildirimi _bildirim;
         private readonly ILogger<AnaFormPresenter> _logger;
+        private const string EszamanlilikMesaji =
+            "Kayıt başka biri tarafından değiştirildi, liste yenilendi. Lütfen güncel değerleri kontrol edip tekrar deneyin.";
+
         private IAnaFormView _view;
         private bool _mesgul;
+        private bool _yenilemeBekliyor;
 
         public AnaFormPresenter(IServiceScopeFactory scopeFactory, IStokDegisiklikBildirimi bildirim)
             : this(scopeFactory, bildirim, NullLogger<AnaFormPresenter>.Instance)
@@ -54,6 +59,7 @@ namespace StokTakip.Presenters
             _bildirim.UrunlerDegisti += async (s, e) => await YenileAsync();
         }
 
+        // Tüm işlemler ve yenilemeler sırayla çalışır; meşgulken gelen bildirim, işlem bitince tek yenilemeye dönüşür.
         private async Task CalistirAsync(Func<Task> islem)
         {
             if (_mesgul)
@@ -65,12 +71,12 @@ namespace StokTakip.Presenters
             _view.Mesgul = true;
             try
             {
-                await islem();
-            }
-            catch (Exception ex)
-            {
-                HataMesaji.Logla(_logger, ex);
-                HataMesaji.Goster(_view, ex);
+                await HataGostererekCalistirAsync(islem);
+                while (_yenilemeBekliyor)
+                {
+                    _yenilemeBekliyor = false;
+                    await HataGostererekCalistirAsync(UrunleriYukleAsync);
+                }
             }
             finally
             {
@@ -79,17 +85,35 @@ namespace StokTakip.Presenters
             }
         }
 
-        private async Task YenileAsync()
+        private async Task HataGostererekCalistirAsync(Func<Task> islem)
         {
             try
             {
-                await UrunleriYukleAsync();
+                await islem();
             }
             catch (Exception ex)
             {
                 HataMesaji.Logla(_logger, ex);
                 HataMesaji.Goster(_view, ex);
             }
+        }
+
+        private Task YenileAsync()
+        {
+            if (_mesgul)
+            {
+                _yenilemeBekliyor = true;
+                return Task.CompletedTask;
+            }
+
+            return CalistirAsync(UrunleriYukleAsync);
+        }
+
+        private async Task EszamanlilikCakismasiniBildirAsync(EszamanlilikException ex)
+        {
+            HataMesaji.Logla(_logger, ex);
+            await UrunleriYukleAsync();
+            _view.UyariGoster(EszamanlilikMesaji);
         }
 
         private async Task UrunleriYukleAsync()
@@ -114,8 +138,8 @@ namespace StokTakip.Presenters
 
         private async Task StokGuncelleAsync()
         {
-            int? urunId = _view.SeciliUrunId;
-            if (urunId == null)
+            UrunDto urun = _view.SeciliUrun;
+            if (urun == null)
             {
                 _view.UyariGoster("Lütfen güncellenecek bir ürün seçin.");
                 return;
@@ -127,26 +151,46 @@ namespace StokTakip.Presenters
                 return;
             }
 
-            await _scopeFactory.CalistirAsync<IStokService>(s => s.StokGuncelleAsync(urunId.Value, yeniStok));
+            try
+            {
+                await _scopeFactory.CalistirAsync<IStokService>(
+                    s => s.StokGuncelleAsync(urun.UrunId, yeniStok, beklenenRowVersion: urun.RowVersion));
+            }
+            catch (EszamanlilikException ex)
+            {
+                await EszamanlilikCakismasiniBildirAsync(ex);
+                return;
+            }
+
             _view.BilgiGoster("Stok güncellendi.");
             await UrunleriYukleAsync();
         }
 
         private async Task UrunSilAsync()
         {
-            int? urunId = _view.SeciliUrunId;
-            if (urunId == null)
+            UrunDto urun = _view.SeciliUrun;
+            if (urun == null)
             {
                 _view.UyariGoster("Lütfen silmek için bir ürün seçin.");
                 return;
             }
 
-            if (!_view.OnayAl("Ürünü silmek istediğinizden emin misiniz?", "Onay"))
+            if (!_view.OnayAl($"'{urun.UrunAdi}' ürününü silmek istediğinizden emin misiniz?", "Onay"))
             {
                 return;
             }
 
-            await _scopeFactory.CalistirAsync<IStokService>(s => s.UrunSilAsync(urunId.Value));
+            try
+            {
+                await _scopeFactory.CalistirAsync<IStokService>(
+                    s => s.UrunSilAsync(urun.UrunId, beklenenRowVersion: urun.RowVersion));
+            }
+            catch (EszamanlilikException ex)
+            {
+                await EszamanlilikCakismasiniBildirAsync(ex);
+                return;
+            }
+
             _view.BilgiGoster("Ürün silindi.");
             await UrunleriYukleAsync();
         }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Windows.Forms;
 
 namespace StokTakip
@@ -42,6 +43,10 @@ namespace StokTakip
             public static readonly Color DangerHover = Color.FromArgb(254, 242, 242);
             public static readonly Color DangerSoft = Color.FromArgb(254, 226, 226);
             public static readonly Color DangerBorder = Color.FromArgb(252, 165, 165);
+
+            public static readonly Color LogoTileTop = Color.FromArgb(59, 130, 246);
+            public static readonly Color LogoTileBottom = Color.FromArgb(29, 78, 216);
+            public static readonly Color LogoLid = Color.FromArgb(191, 219, 254);
         }
 
         /// <summary>Tasarımcıda Tag olarak kullanılan rol adları.</summary>
@@ -81,10 +86,12 @@ namespace StokTakip
         public static readonly Font ButtonFont = new Font(FontFamilySemibold, 9.75F);
         public static readonly Font SectionFont = new Font(FontFamilySemibold, 11.25F);
         public static readonly Font TitleFont = new Font(FontFamilySemibold, 15F);
-        public static readonly Font LogoFont = new Font(FontFamilySemibold, 11F);
         public static readonly Font StatValueFont = new Font(FontFamilySemibold, 20F);
         public static readonly Font GridHeaderFont = new Font(FontFamilySemibold, 9F);
         public static readonly Font GridEmphasisFont = new Font(FontFamilySemibold, 9.75F);
+
+        public static readonly Image Logo = KaynakResmiYukle("StokTakip.logo-64.png");
+        public static readonly Icon UygulamaSimgesi = KaynakSimgesiYukle("StokTakip.app.ico");
 
         private static readonly Dictionary<string, string> ColumnHeaders =
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -102,7 +109,36 @@ namespace StokTakip
         {
             form.BackColor = Palette.Background;
             form.ForeColor = Palette.Text;
+            if (UygulamaSimgesi != null)
+            {
+                form.Icon = UygulamaSimgesi;
+            }
+
             ApplyToChildren(form);
+        }
+
+        private static Image KaynakResmiYukle(string ad)
+        {
+            using (Stream akis = typeof(Theme).Assembly.GetManifestResourceStream(ad))
+            {
+                if (akis == null)
+                {
+                    return null;
+                }
+
+                using (Image resim = Image.FromStream(akis))
+                {
+                    return new Bitmap(resim);
+                }
+            }
+        }
+
+        private static Icon KaynakSimgesiYukle(string ad)
+        {
+            using (Stream akis = typeof(Theme).Assembly.GetManifestResourceStream(ad))
+            {
+                return akis == null ? null : new Icon(akis);
+            }
         }
 
         private static void ApplyToChildren(Control parent)
@@ -144,6 +180,11 @@ namespace StokTakip
                     break;
                 case Panel panel:
                     StylePanel(panel, role);
+                    break;
+                case PictureBox pictureBox when role == Roles.Logo:
+                    pictureBox.BackColor = Color.Transparent;
+                    pictureBox.SizeMode = PictureBoxSizeMode.Zoom;
+                    pictureBox.Image = Logo;
                     break;
             }
         }
@@ -187,12 +228,6 @@ namespace StokTakip
         {
             switch (role)
             {
-                case Roles.Logo:
-                    label.BackColor = Palette.Primary;
-                    label.ForeColor = Color.White;
-                    label.Font = LogoFont;
-                    label.TextAlign = ContentAlignment.MiddleCenter;
-                    break;
                 case Roles.Title:
                     label.Font = TitleFont;
                     label.ForeColor = Palette.Text;

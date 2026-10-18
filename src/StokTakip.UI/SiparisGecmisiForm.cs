@@ -22,6 +22,9 @@ namespace StokTakip
 
         public event EventHandler Yuklendi;
         public event EventHandler SiparisSilIstendi;
+        public event EventHandler Kapandi;
+
+        bool ISiparisGecmisiView.Kapali => Kapali;
 
         int? ISiparisGecmisiView.SeciliSiparisId =>
             dgvSiparisGecmisi.SelectedRows.Count > 0 && dgvSiparisGecmisi.SelectedRows[0].DataBoundItem is SiparisDto siparis
@@ -84,6 +87,8 @@ namespace StokTakip
         private bool Kapali => IsDisposed || Disposing || !IsHandleCreated;
 
         private void SiparisGecmisiForm_Load(object sender, EventArgs e) => Yuklendi?.Invoke(this, EventArgs.Empty);
+
+        private void SiparisGecmisiForm_FormClosed(object sender, FormClosedEventArgs e) => Kapandi?.Invoke(this, EventArgs.Empty);
 
         private void btnSiparisSil_Click(object sender, EventArgs e) => SiparisSilIstendi?.Invoke(this, EventArgs.Empty);
     }

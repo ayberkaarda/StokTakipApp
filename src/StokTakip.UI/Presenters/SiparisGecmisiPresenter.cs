@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -20,6 +21,7 @@ namespace StokTakip.Presenters
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly IStokDegisiklikBildirimi _bildirim;
         private readonly ILogger<SiparisGecmisiPresenter> _logger;
+        private readonly CancellationTokenSource _kapanis = new CancellationTokenSource();
         private ISiparisGecmisiView _view;
         private bool _mesgul;
 
@@ -35,6 +37,8 @@ namespace StokTakip.Presenters
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+        private bool Kapandi => _kapanis.IsCancellationRequested || _view.Kapali;
+
         public void Bagla(ISiparisGecmisiView view)
         {
             if (_view != null)
@@ -45,11 +49,12 @@ namespace StokTakip.Presenters
             _view = view ?? throw new ArgumentNullException(nameof(view));
             _view.Yuklendi += async (s, e) => await CalistirAsync(SiparisleriYukleAsync);
             _view.SiparisSilIstendi += async (s, e) => await CalistirAsync(SiparisSilAsync);
+            _view.Kapandi += (s, e) => _kapanis.Cancel();
         }
 
         private async Task CalistirAsync(Func<Task> islem)
         {
-            if (_mesgul)
+            if (_mesgul || Kapandi)
             {
                 return;
             }
@@ -60,23 +65,39 @@ namespace StokTakip.Presenters
             {
                 await islem();
             }
+            catch (OperationCanceledException) when (_kapanis.IsCancellationRequested)
+            {
+            }
             catch (Exception ex)
             {
                 HataMesaji.Logla(_logger, ex);
-                HataMesaji.Goster(_view, ex);
+                if (!Kapandi)
+                {
+                    HataMesaji.Goster(_view, ex);
+                }
             }
             finally
             {
                 _mesgul = false;
-                _view.Mesgul = false;
+                if (!Kapandi)
+                {
+                    _view.Mesgul = false;
+                }
             }
         }
 
         private async Task SiparisleriYukleAsync()
         {
+            CancellationToken iptal = _kapanis.Token;
             (IReadOnlyList<SiparisDto> siparisler, SiparisOzetiDto ozet) = await _scopeFactory
                 .CalistirAsync<ISiparisService, (IReadOnlyList<SiparisDto>, SiparisOzetiDto)>(
-                    async s => (await s.SiparisGecmisiniGetirAsync(), await s.SiparisOzetiGetirAsync()));
+                    async s => (await s.SiparisGecmisiniGetirAsync(iptal), await s.SiparisOzetiGetirAsync(iptal)));
+
+            if (Kapandi)
+            {
+                return;
+            }
+
             _view.SiparisleriGoster(siparisler);
             _view.OzetiGoster(ozet);
         }
@@ -90,10 +111,29 @@ namespace StokTakip.Presenters
                 return;
             }
 
+            // Silme başladıysa form kapansa da tamamlanmalı; iptal yalnızca okuma sorgularına uygulanır.
             await _scopeFactory.CalistirAsync<ISiparisService>(s => s.SiparisSilAsync(siparisId.Value));
-            await SiparisleriYukleAsync();
             _bildirim.Bildir();
-            _view.BilgiGoster("Sipariş silindi ve stok güncellendi.");
+
+            try
+            {
+                await SiparisleriYukleAsync();
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException || !_kapanis.IsCancellationRequested)
+            {
+                HataMesaji.Logla(_logger, ex);
+                if (!Kapandi)
+                {
+                    _view.UyariGoster("Sipariş silindi ve stok güncellendi, ancak liste yenilenemedi.\n\n" + HataMesaji.Olustur(ex));
+                }
+
+                return;
+            }
+
+            if (!Kapandi)
+            {
+                _view.BilgiGoster("Sipariş silindi ve stok güncellendi.");
+            }
         }
     }
 }

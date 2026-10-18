@@ -10,6 +10,7 @@
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <Deterministic>true</Deterministic>
+    <ApplicationIcon>..\..\assets\logo\app.ico</ApplicationIcon>
   </PropertyGroup>
 
   <!-- Assembly bilgileri (eski Properties\AssemblyInfo.cs'ten taşındı) -->
@@ -37,6 +38,11 @@
     <ProjectReference Include="..\StokTakip.Domain\StokTakip.Domain.csproj" />
     <ProjectReference Include="..\StokTakip.Application\StokTakip.Application.csproj" />
     <ProjectReference Include="..\StokTakip.Data\StokTakip.Data.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\assets\logo\logo-64.png" LogicalName="StokTakip.logo-64.png" Link="Resources\logo-64.png" />
+    <EmbeddedResource Include="..\..\assets\logo\app.ico" LogicalName="StokTakip.app.ico" Link="Resources\app.ico" />
   </ItemGroup>
 
   <ItemGroup>

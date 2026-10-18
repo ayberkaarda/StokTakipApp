@@ -29,7 +29,7 @@
         private void InitializeComponent()
         {
             this.pnlHeader = new System.Windows.Forms.Panel();
-            this.lblLogo = new System.Windows.Forms.Label();
+            this.picLogo = new System.Windows.Forms.PictureBox();
             this.lblBaslik = new System.Windows.Forms.Label();
             this.lblAltBaslik = new System.Windows.Forms.Label();
             this.tlpGovde = new System.Windows.Forms.TableLayoutPanel();
@@ -47,6 +47,7 @@
             this.lblListeAciklama = new System.Windows.Forms.Label();
             this.lblListeBaslik = new System.Windows.Forms.Label();
             this.pnlHeader.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.picLogo)).BeginInit();
             this.tlpGovde.SuspendLayout();
             this.tlpOzet.SuspendLayout();
             this.pnlToplamSiparis.SuspendLayout();
@@ -60,7 +61,7 @@
             //
             this.pnlHeader.Controls.Add(this.lblAltBaslik);
             this.pnlHeader.Controls.Add(this.lblBaslik);
-            this.pnlHeader.Controls.Add(this.lblLogo);
+            this.pnlHeader.Controls.Add(this.picLogo);
             this.pnlHeader.Dock = System.Windows.Forms.DockStyle.Top;
             this.pnlHeader.Location = new System.Drawing.Point(0, 0);
             this.pnlHeader.Name = "pnlHeader";
@@ -68,15 +69,15 @@
             this.pnlHeader.TabIndex = 1;
             this.pnlHeader.Tag = "header";
             //
-            // lblLogo
+            // picLogo
             //
-            this.lblLogo.Location = new System.Drawing.Point(24, 14);
-            this.lblLogo.Name = "lblLogo";
-            this.lblLogo.Size = new System.Drawing.Size(36, 36);
-            this.lblLogo.TabIndex = 0;
-            this.lblLogo.Tag = "logo";
-            this.lblLogo.Text = "ST";
-            this.lblLogo.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.picLogo.Location = new System.Drawing.Point(24, 14);
+            this.picLogo.Name = "picLogo";
+            this.picLogo.Size = new System.Drawing.Size(36, 36);
+            this.picLogo.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
+            this.picLogo.TabIndex = 0;
+            this.picLogo.TabStop = false;
+            this.picLogo.Tag = "logo";
             //
             // lblBaslik
             //
@@ -274,9 +275,11 @@
             this.Name = "SiparisGecmisiForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Sipariş Geçmişi";
+            this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.SiparisGecmisiForm_FormClosed);
             this.Load += new System.EventHandler(this.SiparisGecmisiForm_Load);
             this.pnlHeader.ResumeLayout(false);
             this.pnlHeader.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.picLogo)).EndInit();
             this.tlpGovde.ResumeLayout(false);
             this.tlpOzet.ResumeLayout(false);
             this.pnlToplamSiparis.ResumeLayout(false);
@@ -293,7 +296,7 @@
         #endregion
 
         private System.Windows.Forms.Panel pnlHeader;
-        private System.Windows.Forms.Label lblLogo;
+        private System.Windows.Forms.PictureBox picLogo;
         private System.Windows.Forms.Label lblBaslik;
         private System.Windows.Forms.Label lblAltBaslik;
         private System.Windows.Forms.TableLayoutPanel tlpGovde;

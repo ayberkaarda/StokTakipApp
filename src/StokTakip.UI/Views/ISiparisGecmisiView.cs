@@ -8,6 +8,9 @@ namespace StokTakip.Views
     {
         event EventHandler Yuklendi;
         event EventHandler SiparisSilIstendi;
+        event EventHandler Kapandi;
+
+        bool Kapali { get; }
 
         int? SeciliSiparisId { get; }
 
