@@ -197,7 +197,7 @@ namespace StokTakip.Presenters
         {
             DateTime yerel = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(k.Zaman, DateTimeKind.Utc), _zaman.LocalTimeZone);
             string varlik = !string.IsNullOrEmpty(k.VarlikAdi)
-                ? $"{k.VarlikTuru} · {k.VarlikAdi}"
+                ? $"{k.VarlikTuru}: {k.VarlikAdi}"
                 : k.VarlikId is int id ? $"{k.VarlikTuru} #{id.ToString(CultureInfo.InvariantCulture)}" : k.VarlikTuru;
             return new DenetimSatiri(
                 yerel.ToString("dd.MM.yyyy HH:mm:ss", CultureInfo.InvariantCulture),

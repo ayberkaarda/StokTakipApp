@@ -13,6 +13,7 @@ namespace StokTakip
     public partial class DenetimKayitlariForm : Form, IDenetimKayitlariView
     {
         private const int VarsayilanSayfaBoyutu = 50;
+        internal const string BosDeger = "—";
 
         private readonly BindingList<DenetimSatiri> _kayitlar = new BindingList<DenetimSatiri>();
         private readonly YuklemeGostergesi _yuklemeGostergesi;
@@ -37,10 +38,10 @@ namespace StokTakip
             bsKayitlar.DataSource = _kayitlar;
             dgvKayitlar.DataBindingComplete += (s, e) =>
             {
-                colVarlik.FillWeight = 110;
-                colEskiDeger.FillWeight = 60;
-                colYeniDeger.FillWeight = 60;
-                colOzet.FillWeight = 190;
+                colVarlik.FillWeight = 200;
+                colEskiDeger.FillWeight = 55;
+                colYeniDeger.FillWeight = 55;
+                colOzet.FillWeight = 130;
                 colFark.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
                 colFark.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
                 colZaman.DefaultCellStyle.ForeColor = Theme.Palette.TextSecondary;
@@ -291,7 +292,22 @@ namespace StokTakip
 
         private void dgvKayitlar_CellFormatting(object sender, DataGridViewCellFormattingEventArgs e)
         {
-            if (e.RowIndex < 0 || e.ColumnIndex != colFark.Index || e.RowIndex >= dgvKayitlar.Rows.Count
+            if (e.RowIndex < 0 || e.RowIndex >= dgvKayitlar.Rows.Count)
+            {
+                return;
+            }
+
+            bool degerSutunu = e.ColumnIndex == colEskiDeger.Index || e.ColumnIndex == colYeniDeger.Index || e.ColumnIndex == colFark.Index;
+            if (degerSutunu && string.IsNullOrEmpty(e.Value as string))
+            {
+                e.Value = BosDeger;
+                e.FormattingApplied = true;
+                e.CellStyle.ForeColor = Theme.Palette.TextMuted;
+                e.CellStyle.SelectionForeColor = Theme.Palette.TextMuted;
+                return;
+            }
+
+            if (e.ColumnIndex != colFark.Index
                 || !(dgvKayitlar.Rows[e.RowIndex].DataBoundItem is DenetimSatiri satir) || satir.FarkDegeri is not int fark || fark == 0)
             {
                 return;
@@ -300,6 +316,15 @@ namespace StokTakip
             e.CellStyle.ForeColor = fark > 0 ? Theme.Palette.Success : Theme.Palette.Danger;
             e.CellStyle.SelectionForeColor = e.CellStyle.ForeColor;
             e.CellStyle.Font = Theme.GridEmphasisFont;
+        }
+
+        private void dgvKayitlar_CellToolTipTextNeeded(object sender, DataGridViewCellToolTipTextNeededEventArgs e)
+        {
+            if (e.RowIndex >= 0 && e.RowIndex < dgvKayitlar.Rows.Count && e.ColumnIndex == colVarlik.Index
+                && dgvKayitlar.Rows[e.RowIndex].DataBoundItem is DenetimSatiri satir)
+            {
+                e.ToolTipText = satir.Varlik;
+            }
         }
 
         private void DenetimKayitlariForm_Load(object sender, EventArgs e)
