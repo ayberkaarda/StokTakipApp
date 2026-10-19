@@ -394,6 +394,7 @@ namespace StokTakip
             this.dgvKayitlar.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
             this.dgvKayitlar.TabIndex = 4;
             this.dgvKayitlar.CellFormatting += new System.Windows.Forms.DataGridViewCellFormattingEventHandler(this.dgvKayitlar_CellFormatting);
+            this.dgvKayitlar.CellToolTipTextNeeded += new System.Windows.Forms.DataGridViewCellToolTipTextNeededEventHandler(this.dgvKayitlar_CellToolTipTextNeeded);
             this.dgvKayitlar.Resize += new System.EventHandler(this.dgvKayitlar_Resize);
             //
             // colZaman
@@ -430,14 +431,14 @@ namespace StokTakip
             // colEskiDeger
             //
             this.colEskiDeger.DataPropertyName = "EskiDeger";
-            this.colEskiDeger.HeaderText = "Önceki Değer";
+            this.colEskiDeger.HeaderText = "Önceki";
             this.colEskiDeger.Name = "EskiDeger";
             this.colEskiDeger.ReadOnly = true;
             //
             // colYeniDeger
             //
             this.colYeniDeger.DataPropertyName = "YeniDeger";
-            this.colYeniDeger.HeaderText = "Sonraki Değer";
+            this.colYeniDeger.HeaderText = "Sonraki";
             this.colYeniDeger.Name = "YeniDeger";
             this.colYeniDeger.ReadOnly = true;
             //
